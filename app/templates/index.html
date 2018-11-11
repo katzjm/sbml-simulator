@@ -2,12 +2,48 @@
 <html>
 <head>
 	<title>Simulator</title>
+	<script src="{{ url_for('static', filename='js/lib/vis.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/drawgraph.js') }}"></script>
+	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/lib/vis-network.min.css') }}">
+	<style type="text/css">
+		* {
+			box-sizing: border-box;
+		}
+
+		.column {
+			height: 800px;
+			width: 50%;
+			float: left;
+		}
+
+		.row:after {
+			content: "";
+			display: table;
+			clear: both;
+		}
+
+		#network {
+			border: 1px solid blue
+		}
+
+		#controls {
+			background-color: lightblue;
+		}
+	</style>
 </head>
 <body>
-	<form method="post">
-		Submit an SBML file: <input type="file" name="sbml"><br>
-		<input type="submit" name="Submit">
-	</form>
-	<p>{{ result }}</p>
+	<div id="page" class="row">
+		<div id="controls" class="column">			
+			<form id="file-form" action="file-upload" method="post">
+				Load an SBML file: <input type="file" id="file-select" name="sbml"><br>
+				<button type="submit" id="upload-button">Upload</button>
+			</form>
+			<form method="post">
+				<input type="submit" name="run" value="Run">
+			</form>
+			<p>{{ result }}</p>
+		</div>
+		<div id="network" class="column"></div>
+	</div>
 </body>
 </html>
