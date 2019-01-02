@@ -1,8 +1,7 @@
 import functools
 import roadrunner as rr
-from io import StringIO
-import numpy
-import tesbml
+import sbnw
+
 from flask import (
 	Blueprint, flash, g, redirect, render_template, request, session, url_for, jsonify
 )
@@ -21,40 +20,90 @@ def run_sim():
 			result = 'Load something first'
 	return render_template('index.html', result=result)
 
+def gethyperedges(curves):
+	def find(data, p):
+		if p != data[p]:
+		        data[p] = find(data, data[p])
+		return data[p]
+
+	def union(data, i, j):
+		pi, pj = find(data, i), find(data, j)
+		if pi != pj:
+			data[pi] = pj
+
+	ends = dict()
+	for curve in curves:
+		end1 = curve['bezier']['start']
+		end2 = curve['bezier']['end']
+		ends[end1] = end1
+		ends[end2] = end2
+	for curve in curves:
+		union(ends, curve['bezier']['start'], curve['bezier']['end'])
+
+	edgeParents = dict()
+	for curve in curves:
+		edgeParent = find(ends, curve['bezier']['start'])
+		if edgeParent not in edgeParents:
+			edgeParents[edgeParent] = list()
+		edgeParents[edgeParent].append(curve)
+
+	return list(edgeParents.values())
+
+def getLayout(sbml, width, height):
+	model = sbnw.loadsbml(sbml)
+
+	if not model.network.haslayout():
+		model.network.randomize(0, 0, width, height)
+		model.network.autolayout()
+	model.network.fitwindow(0, 0, width, height)
+
+	layout = {
+		'nodes': list(),
+		'edges': None,
+		'sbml': model.getsbml(),
+	}
+
+	for node in model.network.nodes:
+		layout['nodes'].append({
+			'id': node.id,
+			'height': node.height,
+			'width': node.width,
+			'centroid': tuple(node.centroid),
+		})
+
+	curves = list()
+	for reaction in model.network.rxns:
+		for curve in reaction.curves:
+			curveType = curve[4]
+			arrow = [tuple(point) for point in curve[5]]
+			curves.append({
+				'type': curveType,
+				'bezier': {
+					'start': tuple(curve[0]),
+					'cp1': tuple(curve[1]),
+					'cp2': tuple(curve[2]),
+					'end': tuple(curve[3]),
+				},
+				'arrow': arrow,
+			})
+	layout['edges'] = gethyperedges(curves)
+
+	return layout
+
 @bp.route('/upload', methods=['POST'])
 def upload():
 	sbmlfile = request.files['sbml']
 	sbml = sbmlfile.read().decode('UTF-8')
-	sbmldoc = tesbml.readSBMLFromString(sbml)
-	sbmlmodel = sbmldoc.getModel()
+	session['sbml'] = sbml;
+	height = int(request.form['height'])
+	width = int(request.form['width'])
+	return jsonify(getLayout(sbml, width, height));
 
-	model = dict()
-	model['nodes'] = list()
-	model['edges'] = list()
-	nodeid = 0
-	ids = dict()
-	for i, reacref in enumerate(sbmlmodel.getListOfReactions()):
-		reaction = reacref.getId()
-		if reaction not in ids:
-			ids[reaction] = nodeid
-			nodeid += 1
-		model['nodes'].append({'id': ids[reaction], 'size': 0.5})
-		for specref in reacref.getListOfReactants():
-			species = specref.getSpecies()
-			if species not in ids:
-				model['nodes'].append({'id': nodeid, 'label': species})
-				ids[species] = nodeid
-				nodeid += 1
-			model['edges'].append({'from': ids[species], 'to': ids[reaction]})
-		for specref in reacref.getListOfProducts():
-			species = specref.getSpecies()
-			if species not in ids:
-				model['nodes'].append({'id': nodeid, 'label': species})
-				ids[species] = nodeid
-				nodeid += 1
-			model['edges'].append({'from': ids[reaction], 'to': ids[species], 'arrows': 'to'})
-
-	return jsonify(model)
+@bp.route('/redraw', methods=['POST'])
+def redraw():
+	height = int(request.form['height'])
+	width = int(request.form['width'])
+	return jsonify(getLayout(session['sbml'], width, height));
 
 	
 

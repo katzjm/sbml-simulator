@@ -21,5 +21,6 @@ def create_app(test_config=None):
 	app.register_blueprint(sim.bp)
 	app.add_url_rule('/', endpoint='index')
 	app.add_url_rule('/upload', endpoint='index')
+	app.add_url_rule('/redraw', endpoint='index')
 	
 	return app
