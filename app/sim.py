@@ -10,15 +10,7 @@ bp = Blueprint('sim', __name__)
 
 @bp.route('/', methods=('GET', 'POST'))
 def run_sim():
-	result = "Nothing loaded"
-	if request.method == 'POST':
-		if 'load' in request.form:
-			session['sbml'] = request.form['sbml']
-		elif 'sbml' in session:
-			result = rr.RoadRunner(session['sbml']).simulate(0, 10, 100)
-		else:
-			result = 'Load something first'
-	return render_template('index.html', result=result)
+	return render_template('index.html')
 
 def gethyperedges(curves):
 	def find(data, p):
@@ -49,12 +41,12 @@ def gethyperedges(curves):
 
 	return list(edgeParents.values())
 
-def getLayout(sbml, width, height):
+def getLayout(sbml, width, height, gravity, stiffness):
 	model = sbnw.loadsbml(sbml)
 
 	if not model.network.haslayout():
 		model.network.randomize(0, 0, width, height)
-		model.network.autolayout()
+		model.network.autolayout(k=stiffness, grav=gravity)
 	model.network.fitwindow(0, 0, width, height)
 
 	layout = {
@@ -94,17 +86,40 @@ def getLayout(sbml, width, height):
 def upload():
 	sbmlfile = request.files['sbml']
 	sbml = sbmlfile.read().decode('UTF-8')
-	session['sbml'] = sbml;
+	
 	height = int(request.form['height'])
 	width = int(request.form['width'])
-	return jsonify(getLayout(sbml, width, height));
+	gravity = float(request.form['gravity'])	
+	stiffness = float(request.form['stiffness'])
+
+	session['sbml'] = sbml
+	return jsonify({ 
+		'layout': getLayout(sbml, width, height, gravity, stiffness),
+	})
+
+@bp.route('/run', methods=['POST'])
+def run():
+	start = float(request.form['start'])
+	end = float(request.form['end'])
+	steps = int(request.form['steps'])
+
+	r = rr.RoadRunner(session['sbml'])
+	ndresult = r.simulate(start, end, points=steps)
+	resultdata = ndresult.transpose().tolist()
+	data = dict()
+	time = None
+	for i, name in enumerate(ndresult.colnames):
+		if name == 'time':
+			time = resultdata[i]
+		else:
+			data[name.strip('[]')] = resultdata[i]
+	return jsonify({
+		'result': { 'data': data, 'time': time }
+	})
+
 
 @bp.route('/redraw', methods=['POST'])
 def redraw():
 	height = int(request.form['height'])
 	width = int(request.form['width'])
 	return jsonify(getLayout(session['sbml'], width, height));
-
-	
-
-

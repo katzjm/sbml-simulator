@@ -2,7 +2,8 @@
 	"use strict";
 
 	window.addEventListener("load", main);
-	let myCanvas;
+	let graphCanvas;
+	let chartCanvas;
 
 	function checkStatus(response) {
 		if (response.status >= 200 && response.status < 300) {
@@ -12,6 +13,15 @@
 		}
 	}
 
+	function getRandomColor() {
+		const characters = "0123456789ABCDEF";
+		let color = "#"
+		for (let i = 0; i < 6; i++) {
+			color += characters[Math.floor(Math.random() * characters.length)];
+		}
+		return color;
+	}
+
 	class Shape {
 		constructor (defaultColor, selectColor) {
 			this.defaultColor = defaultColor;
@@ -19,6 +29,7 @@
 			this.textColor = 'black';
 			this.color = this.defaultColor;
 			this.isSelected = false;
+			this.isPlotted = false;
 		}
 
 		contains(ctx, mx, my) {
@@ -77,6 +88,17 @@
 		drag(dx, dy) {
 			this.x += dx;
 			this.y += dy;
+		}
+
+		plot() {
+			chartCanvas.showDataset(this.id);
+			chartCanvas.show();
+			this.isPlotted = true;
+		}
+
+		unplot() {
+			chartCanvas.hideDataset(this.id);
+			this.isPlotted = false;
 		}
 	}
 
@@ -181,6 +203,130 @@
 		constructor(canvas) {
 			this.canvas = canvas;
 			this.ctx = canvas.getContext('2d');
+		}
+
+		set height(newHeight) {
+			this.canvas.height = newHeight;
+		}
+
+		set width(newWidth) {
+			this.canvas.width = newWidth;
+		}
+
+		get height() {
+			return this.canvas.height;
+		}
+
+		get width() {
+			return this.canvas.width;
+		}
+	}
+
+	class ChartCanvas extends Canvas {
+		constructor(canvas) {
+			super(canvas);
+			this.data = null;
+			this.time = null;
+			this.config = {
+				type: 'line',
+				options: {
+					repsponsive: true,
+					title: {
+						display: true,
+						text: 'Example Chart',
+					},
+					tooltips: {
+						mode: 'index',
+						intersect: false,
+					},
+					scales: {
+						xAxes: [{
+							display: true,
+							scaleLabel: {
+								display: true,
+								labelString: 'Time',
+							}
+						}],
+						yAxes: [{
+							display: true,
+							scaleLabel: {
+								display: true,
+								labelString: 'Concentration',
+							}
+						}]
+					}
+				}
+			}
+			this.chart = new Chart(this.ctx, this.config);
+		}
+
+		loadData(data, time) {
+			this.data = data;
+			this.time = time;
+			this.chart.data.labels = time;
+		}
+
+		clearData() {
+			this.data = null;
+			this.time = null;
+			this.chart.data = null;
+			this.chart.update();
+		}
+
+		showDataset(label) {
+			this.chart.data.datasets.push(this.getDatasetConfig(label, this.data[label]));
+			this.chart.update();		
+		}
+
+		hideDataset(label) {
+			for (let i = 0; i < this.chart.data.datasets.length; i++) {
+				const dataset = this.chart.data.datasets[i];
+				if (dataset.label === label) {
+					this.chart.data.datasets.splice(i, 1);
+					this.chart.update();
+					break;
+				}
+			}
+		}
+
+		hideAllDatasets() {
+			this.chart.data.datasets = [];
+			this.chart.update();
+		}
+
+		showAllDatasets() {
+			this.chart.data.datasets = [];
+			this.data.forEach( dataset => {
+				this.chart.data.datasets.push(this.getDatasetConfig(label, this.data[label]));
+			});
+			this.chart.update();
+		}
+
+		hide() {
+			this.canvas.style.height = '0px';
+		}
+
+		show() {
+			this.canvas.style.height = '';
+		}
+
+		getDatasetConfig(label, data) {
+			const color = getRandomColor();
+			return {
+				label: label,
+				data: data,
+				backgroundColor: color,
+				borderColor: color,
+				fill: false,
+				pointRadius: 1,
+				pointHoverRadius: 5,
+			};
+		}
+	}
+
+	class GraphCanvas extends Canvas {
+		constructor(canvas) {
+			super(canvas);
 			this.shapes = [];
 			this.drawInterval = 30;
 			this.valid = false;
@@ -188,24 +334,41 @@
 			this.originX = 0;
 			this.originY = 0;
 			this.scale = 1;
-			this.selection = null;
+			this.selection = [];
 			setInterval(() => this.draw(), this.drawInterval);
 
 			canvas.addEventListener("mousedown", e => {
-				const scaledMouse = this.getScaledMousePos(e);
-				this.panOffsetX = scaledMouse.x;
-				this.panOffsetY = scaledMouse.y;
-				this.panning = true;
-				this.valid = false;
-
-				this.clearSelection();
-				const simpleMouse = this.getSimpleMousePos(e);
-				for (let shape of this.shapes) {																																			
-					if (shape.contains(this.ctx, simpleMouse.x, simpleMouse.y)) {
-						this.selectShapes(shape);
-						break;
+				if (document.getElementById('select').checked) {
+					const simpleMouse = this.getSimpleMousePos(e);
+					if (!e.shiftKey) {
+						this.clearSelection();
 					}
+					for (let shape of this.shapes) {																																	
+						if (shape.contains(this.ctx, simpleMouse.x, simpleMouse.y)) {
+							shape.isSelected ? this.deselectShape(shape) : this.selectShape(shape);
+							break;
+						}
+					}
+					this.panning = false;
+				} else if (document.getElementById('plot').checked) {
+					for (let shape of this.shapes) {																																	
+						if (shape.contains(this.ctx, simpleMouse.x, simpleMouse.y)) {
+							if (shape instanceof Node) {
+								shape.isPlotted ? shape.unplot() : shape.plot();
+							}
+							break;
+						}
+					}
+					
 				}
+				} else {
+					const scaledMouse = this.getScaledMousePos(e);
+					this.panOffsetX = scaledMouse.x;
+					this.panOffsetY = scaledMouse.y;
+					this.panning = true;
+					this.clearSelection();
+				}
+				this.valid = false;
 			}, true);
 
 			canvas.addEventListener("mousemove", e => {
@@ -214,14 +377,10 @@
 					const dx = mouse.x - this.panOffsetX;
 					const dy = mouse.y - this.panOffsetY;
 					this.panOffsetX = mouse.x;
-					this.panOffsetY = mouse.y;
-					if (this.selection) {
-						this.selection.drag(dx, dy);
-					} else {					
-						this.ctx.translate(dx, dy);
-						this.originX -= dx;
-						this.originY -= dy;
-					}
+					this.panOffsetY = mouse.y;					
+					this.ctx.translate(dx, dy);
+					this.originX -= dx;
+					this.originY -= dy;
 					this.valid = false;
 				}
 			}, true);
@@ -249,33 +408,6 @@
 				this.scale *= zoom;
 				this.valid = false;
 			}, true);
-
-			canvas.addEventListener("click", e => {
-				const mouse = this.getSimpleMousePos(e);
-				for (let shape of this.shapes) {
-					if (shape.contains(this.ctx, mouse.x, mouse.y)) {
-						shape.color = 'green';
-						break;
-					}
-				}
-				this.valid = false;
-			}, true);
-		}
-
-		set height(newHeight) {
-			this.canvas.height = newHeight;
-		}
-
-		set width(newWidth) {
-			this.canvas.width = newWidth;
-		}
-
-		get height() {
-			return this.canvas.height;
-		}
-
-		get width() {
-			return this.canvas.width;
 		}
 
 		addShape(shape) {
@@ -284,9 +416,10 @@
 		}
 
 		getSimpleMousePos(e) {
+			const rect = this.canvas.getBoundingClientRect();
 			return { 
-				x: e.pageX - this.canvas.offsetLeft,
-				y: e.pageY - this.canvas.offsetTop
+				x: e.pageX - rect.x,
+				y: e.pageY - rect.y
 			};
 		}
 
@@ -314,29 +447,28 @@
 		}
 
 		clearSelection() {
-			if (this.selection) {
-				if (this.selection instanceof Shape) {
-					this.selection.deselect();
-				} else {
-					this.selection.forEach(shape => shape.deselect());
-				}
-			}
-			this.selection = null;
+			this.selection.forEach(shape => shape.deselect());
+			chartCanvas.hideAllDatasets();
+			chartCanvas.hide();
+			this.selection = [];
 		}
 
-		selectShapes(selection) {
-			this.selection = selection;
-			if (selection instanceof Shape) {
-				this.selection.select();
-			} else {
-				this.selection.forEach(shape => shape.select());
-			} 
+		selectShape(shape) {
+			shape.select();
+			this.selection.push(shape);
+		}
+
+		deselectShape(shape) {
+			shape.deselect();
+			this.selection.splice(this.selection.indexOf(shape), 1);
 		}
 	}
 
 	function handleGraphJSON(json){
-		const nodes = json['nodes'];
-		const edges = json['edges'];
+
+		const layout = json['layout'];
+		const nodes = layout['nodes'];
+		const edges = layout['edges'];
 
 		const controls = document.getElementById('controls');
 
@@ -353,22 +485,29 @@
 		let redrawButton = document.getElementById('redraw-form');
 		redrawButton.style.display = 'inline';
 
-		myCanvas.clear();
-		edges.forEach(edge => myCanvas.addShape(new HyperEdge(edge)));
-		nodes.forEach(node => myCanvas.addShape(new Node(node)));
+		graphCanvas.clear();
+		edges.forEach(edge => graphCanvas.addShape(new HyperEdge(edge)));
+		nodes.forEach(node => graphCanvas.addShape(new Node(node)));
+	}
+
+	function handleResultJSON(json) {
+		const result = json['result'];
+		chartCanvas.loadData(result['data'], result['time']);
 	}
 
 	function handleFileSubmision(e) {
 		e.preventDefault();
 
-		const uploadButton = document.getElementById('upload-button');
 		const fileSelect = document.getElementById('file-select');
-		uploadButton.innerHTML = 'Uploading...';
+		const gravity = document.getElementById('gravity').value;
+		const stiffness = document.getElementById('stiffness').value;
 
 		const formData = new FormData();
 		formData.append('sbml', fileSelect.files[0], 'sbml.xml');
-		formData.append('height', myCanvas.height);
-		formData.append('width', myCanvas.width);
+		formData.append('height', graphCanvas.height);
+		formData.append('width', graphCanvas.width);
+		formData.append('gravity', gravity);
+		formData.append('stiffness', stiffness);
 
 		const init = {
 			method: "POST",
@@ -380,16 +519,38 @@
 			.then(JSON.parse)
 			.then(handleGraphJSON)
 			.catch(console.log);
+	}
 
-		uploadButton.innerHTML = 'Upload';
+	function handleRunButton(e) {
+		e.preventDefault();
+
+		const start = document.getElementById('start-time').value;
+		const end = document.getElementById('end-time').value;
+		const steps = document.getElementById('time-step').value;
+
+		const formData = new FormData();
+		formData.append('start', start);
+		formData.append('end', end);
+		formData.append('steps', steps);
+
+		const init = {
+			method: "POST",
+			body: formData,
+		};
+
+		fetch("run", init)
+			.then(checkStatus)
+			.then(JSON.parse)
+			.then(handleResultJSON)
+			.catch(console.log);
 	}
 
 	function handleRedraw(e) {
 		e.preventDefault();
 
 		const formData = new FormData();
-		formData.append('height', myCanvas.height);
-		formData.append('width', myCanvas.width);
+		formData.append('height', graphCanvas.height);
+		formData.append('width', graphCanvas.width);
 
 		const init = {
 			method: "POST",
@@ -404,13 +565,18 @@
 	}
 
 	function main() {
-		myCanvas = new Canvas(document.getElementById('canvas'));
-		myCanvas.width = window.innerWidth / 2;
-		myCanvas.height = window.innerHeight;
+		graphCanvas = new GraphCanvas(document.getElementById('canvas'));
+		graphCanvas.width = window.innerWidth / 2;
+		graphCanvas.height = window.innerHeight;
+
+		chartCanvas = new ChartCanvas(document.getElementById('chart'));
+		chartCanvas.hide();
 
 		const fileForm = document.getElementById('file-form');
+		const runForm = document.getElementById('run-form');
 		const redrawForm = document.getElementById('redraw-form');
-		fileForm.addEventListener("submit", handleFileSubmision);
+		fileForm.addEventListener("change", handleFileSubmision);
+		runForm.addEventListener('submit', handleRunButton);
 		redrawForm.addEventListener("submit", handleRedraw);
 	}
 })();
