@@ -3,7 +3,7 @@ import roadrunner as rr
 import sbnw
 
 from flask import (
-	Blueprint, flash, g, redirect, render_template, request, session, url_for, jsonify
+	Blueprint, flash, g, redirect, render_template, request, session, url_for, jsonify, current_app
 )
 
 bp = Blueprint('sim', __name__)
@@ -85,16 +85,15 @@ def getLayout(sbml, width, height, gravity, stiffness):
 @bp.route('/upload', methods=['POST'])
 def upload():
 	sbmlfile = request.files['sbml']
-	sbml = sbmlfile.read().decode('UTF-8')
+	current_app.sbml = sbmlfile.read().decode('UTF-8')
 	
 	height = int(request.form['height'])
 	width = int(request.form['width'])
 	gravity = float(request.form['gravity'])	
 	stiffness = float(request.form['stiffness'])
 
-	session['sbml'] = sbml
 	return jsonify({ 
-		'layout': getLayout(sbml, width, height, gravity, stiffness),
+		'layout': getLayout(current_app.sbml, width, height, gravity, stiffness),
 	})
 
 @bp.route('/run', methods=['POST'])
@@ -103,8 +102,8 @@ def run():
 	end = float(request.form['end'])
 	steps = int(request.form['steps'])
 
-	r = rr.RoadRunner(session['sbml'])
-	ndresult = r.simulate(start, end, points=steps)
+	current_app.r = rr.RoadRunner(current_app.sbml)
+	ndresult = current_app.r.simulate(start, end, points=steps)
 	resultdata = ndresult.transpose().tolist()
 	data = dict()
 	time = None

@@ -89,17 +89,6 @@
 			this.x += dx;
 			this.y += dy;
 		}
-
-		plot() {
-			chartCanvas.showDataset(this.id);
-			chartCanvas.show();
-			this.isPlotted = true;
-		}
-
-		unplot() {
-			chartCanvas.hideDataset(this.id);
-			this.isPlotted = false;
-		}
 	}
 
 	class Curve extends Shape {
@@ -225,8 +214,8 @@
 	class ChartCanvas extends Canvas {
 		constructor(canvas) {
 			super(canvas);
-			this.data = null;
-			this.time = null;
+			this.data = {};
+			this.time = {};
 			this.config = {
 				type: 'line',
 				options: {
@@ -267,15 +256,17 @@
 		}
 
 		clearData() {
-			this.data = null;
-			this.time = null;
-			this.chart.data = null;
+			this.data = {};
+			this.time = {};
+			this.chart.data = [];
 			this.chart.update();
+			this.hide();
 		}
 
-		showDataset(label) {
+		plotDataset(label) {
 			this.chart.data.datasets.push(this.getDatasetConfig(label, this.data[label]));
-			this.chart.update();		
+			this.chart.update();
+			this.show();	
 		}
 
 		hideDataset(label) {
@@ -287,19 +278,24 @@
 					break;
 				}
 			}
+			if (!this.chart.data.datasets.length) {
+				this.hide();
+			}
 		}
 
 		hideAllDatasets() {
 			this.chart.data.datasets = [];
 			this.chart.update();
+			this.hide();
 		}
 
-		showAllDatasets() {
+		plotAllDatasets() {
 			this.chart.data.datasets = [];
-			this.data.forEach( dataset => {
+			for (let label in this.data) {
 				this.chart.data.datasets.push(this.getDatasetConfig(label, this.data[label]));
-			});
+			}
 			this.chart.update();
+			this.show();
 		}
 
 		hide() {
@@ -322,6 +318,10 @@
 				pointHoverRadius: 5,
 			};
 		}
+
+		isPlotted(label) {
+			return this.chart.data.datasets.some(dataset => dataset.label === label);
+		}
 	}
 
 	class GraphCanvas extends Canvas {
@@ -335,11 +335,12 @@
 			this.originY = 0;
 			this.scale = 1;
 			this.selection = [];
+			this.selectPoint = {};
 			setInterval(() => this.draw(), this.drawInterval);
 
 			canvas.addEventListener("mousedown", e => {
+				const simpleMouse = this.getSimpleMousePos(e);
 				if (document.getElementById('select').checked) {
-					const simpleMouse = this.getSimpleMousePos(e);
 					if (!e.shiftKey) {
 						this.clearSelection();
 					}
@@ -351,22 +352,25 @@
 					}
 					this.panning = false;
 				} else if (document.getElementById('plot').checked) {
+					if (!e.shiftKey) {
+						chartCanvas.hideAllDatasets();
+					}
+					let mouseOnGraph = false;
 					for (let shape of this.shapes) {																																	
 						if (shape.contains(this.ctx, simpleMouse.x, simpleMouse.y)) {
 							if (shape instanceof Node) {
-								shape.isPlotted ? shape.unplot() : shape.plot();
+								chartCanvas.isPlotted(shape.id) ? chartCanvas.hideDataset(shape.id) : chartCanvas.plotDataset(shape.id);
 							}
+							mouseOnGraph = true;
 							break;
 						}
 					}
-					
-				}
-				} else {
-					const scaledMouse = this.getScaledMousePos(e);
-					this.panOffsetX = scaledMouse.x;
-					this.panOffsetY = scaledMouse.y;
-					this.panning = true;
-					this.clearSelection();
+					if (!mouseOnGraph) {
+						const scaledMouse = this.getScaledMousePos(e);
+						this.panOffsetX = scaledMouse.x;
+						this.panOffsetY = scaledMouse.y;
+						this.panning = true;
+					}
 				}
 				this.valid = false;
 			}, true);
@@ -446,31 +450,34 @@
 			}
 		}
 
+		selectAllShapes() {
+			this.shapes.forEach(shape => this.selectShape(shape));	
+			this.valid = false;		
+		}
+
 		clearSelection() {
 			this.selection.forEach(shape => shape.deselect());
-			chartCanvas.hideAllDatasets();
-			chartCanvas.hide();
 			this.selection = [];
+			this.valid = false;
 		}
 
 		selectShape(shape) {
 			shape.select();
 			this.selection.push(shape);
+			this.valid = false;
 		}
 
 		deselectShape(shape) {
 			shape.deselect();
 			this.selection.splice(this.selection.indexOf(shape), 1);
+			this.valid = false;
 		}
 	}
 
 	function handleGraphJSON(json){
-
 		const layout = json['layout'];
 		const nodes = layout['nodes'];
 		const edges = layout['edges'];
-
-		const controls = document.getElementById('controls');
 
 		let downloadLink = document.getElementById('sbml-download');
 		if (!downloadLink) {
@@ -478,7 +485,7 @@
 			downloadLink.setAttribute('download', 'sbml.xml');
 			downloadLink.setAttribute('id', 'sbml-download');
 			downloadLink.innerHTML = 'Download Model SBML'
-			controls.appendChild(downloadLink);
+			document.getElementById('controls').appendChild(downloadLink);
 		}
 		downloadLink.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(json['sbml']));
 
@@ -564,6 +571,14 @@
 			.catch(console.log);
 	}
 
+	function handleSelectAllButton() {
+		if (document.getElementById('select').checked) {
+			graphCanvas.selectAllShapes();
+		} else if (document.getElementById('plot').checked) {
+			chartCanvas.plotAllDatasets();
+		}
+	}
+
 	function main() {
 		graphCanvas = new GraphCanvas(document.getElementById('canvas'));
 		graphCanvas.width = window.innerWidth / 2;
@@ -575,8 +590,10 @@
 		const fileForm = document.getElementById('file-form');
 		const runForm = document.getElementById('run-form');
 		const redrawForm = document.getElementById('redraw-form');
+		const selectAllButton = document.getElementById('select-all');
 		fileForm.addEventListener("change", handleFileSubmision);
 		runForm.addEventListener('submit', handleRunButton);
 		redrawForm.addEventListener("submit", handleRedraw);
+		selectAllButton.addEventListener('click', handleSelectAllButton);
 	}
 })();

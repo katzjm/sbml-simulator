@@ -22,5 +22,8 @@ def create_app(test_config=None):
 	app.add_url_rule('/', endpoint='index')
 	app.add_url_rule('/upload', endpoint='index')
 	app.add_url_rule('/redraw', endpoint='index')
+
+	app.sbml = None
+	app.r = None
 	
 	return app
