@@ -86,6 +86,7 @@ def getLayout(sbml, width, height, gravity, stiffness):
 def upload():
 	sbmlfile = request.files['sbml']
 	current_app.sbml = sbmlfile.read().decode('UTF-8')
+	current_app.r = rr.RoadRunner(current_app.sbml)
 	
 	height = int(request.form['height'])
 	width = int(request.form['width'])
@@ -102,7 +103,7 @@ def run():
 	end = float(request.form['end'])
 	steps = int(request.form['steps'])
 
-	current_app.r = rr.RoadRunner(current_app.sbml)
+	current_app.r.reset()
 	ndresult = current_app.r.simulate(start, end, points=steps)
 	resultdata = ndresult.transpose().tolist()
 	data = dict()
@@ -113,7 +114,9 @@ def run():
 		else:
 			data[name.strip('[]')] = resultdata[i]
 	return jsonify({
-		'result': { 'data': data, 'time': time }
+		'result': { 'data': data, 'time': time },
+		'params': current_app.r.model.getGlobalParameterIds() 
+				+ current_app.r.model.getBoundarySpeciesIds(),
 	})
 
 
@@ -122,3 +125,12 @@ def redraw():
 	height = int(request.form['height'])
 	width = int(request.form['width'])
 	return jsonify(getLayout(session['sbml'], width, height));
+
+@bp.route('/get_param', methods=['POST'])
+def getparam():
+	return jsonify(current_app.r[request.form['param']])
+
+@bp.route('/set_param', methods=['POST'])
+def setparam():
+	current_app.r[request.form['param']] = float(request.form['value'])
+	return '200'

@@ -4,6 +4,9 @@
 	window.addEventListener("load", main);
 	let graphCanvas;
 	let chartCanvas;
+	let start;
+	let end;
+	let steps;
 
 	function checkStatus(response) {
 		if (response.status >= 200 && response.status < 300) {
@@ -216,6 +219,7 @@
 			super(canvas);
 			this.data = {};
 			this.time = {};
+			this.curDataLabels = new Set();
 			this.config = {
 				type: 'line',
 				options: {
@@ -255,28 +259,49 @@
 			this.chart.data.labels = time;
 		}
 
+		clearCanvas() {
+			this.data = {};
+			this.time = {};
+			this.curDataLabels.clear();
+			this.chart.data = [];
+			this.chart.update();
+		}
+
 		clearData() {
 			this.data = {};
 			this.time = {};
 			this.chart.data = [];
+		}
+
+		clearPlot() {
+			this.chart.data = [];
 			this.chart.update();
-			this.hide();
+		}
+
+		replot() {
+			for (let config of this.chart.data.datasets) {
+				config.data = this.data[config.label];
+			}
+			this.chart.update();
 		}
 
 		plotDataset(label) {
-			this.chart.data.datasets.push(this.getDatasetConfig(label, this.data[label]));
-			this.chart.update();
-			this.show();	
+			if (!this.chart.data.datasets.some(config => config.label == label)) {
+				this.curDataLabels.add(label);
+				this.chart.data.datasets.push(this.getDatasetConfig(label, this.data[label]));
+				this.chart.update();
+				this.show();		
+			}
 		}
 
 		hideDataset(label) {
-			for (let i = 0; i < this.chart.data.datasets.length; i++) {
-				const dataset = this.chart.data.datasets[i];
-				if (dataset.label === label) {
-					this.chart.data.datasets.splice(i, 1);
-					this.chart.update();
-					break;
-				}
+			const index = this.chart.data.datasets.findIndex((config, index, arr) => {
+				return config.label == label;
+			});
+			if (index !== -1) {
+				this.chart.data.datasets.splice(index, 1);
+				this.chart.update();
+				this.curDataLabels.delete(label);
 			}
 			if (!this.chart.data.datasets.length) {
 				this.hide();
@@ -285,6 +310,7 @@
 
 		hideAllDatasets() {
 			this.chart.data.datasets = [];
+			this.curDataLabels.clear();
 			this.chart.update();
 			this.hide();
 		}
@@ -292,6 +318,7 @@
 		plotAllDatasets() {
 			this.chart.data.datasets = [];
 			for (let label in this.data) {
+				this.curDataLabels.add(label);
 				this.chart.data.datasets.push(this.getDatasetConfig(label, this.data[label]));
 			}
 			this.chart.update();
@@ -320,7 +347,7 @@
 		}
 
 		isPlotted(label) {
-			return this.chart.data.datasets.some(dataset => dataset.label === label);
+			return this.curDataLabels.has(label);
 		}
 	}
 
@@ -474,7 +501,28 @@
 		}
 	}
 
-	function handleGraphJSON(json){
+	function postToServer(url, responseHandler, args) {
+		const formData = new FormData();
+		Object.keys(args).forEach( key => formData.append(key, args[key]));
+
+		const init = {
+			method: "POST",
+			body: formData,
+		};
+
+		fetch(url, init)
+			.then(checkStatus)
+			.then(JSON.parse)
+			.then(responseHandler)
+			.catch(console.log);
+	}
+
+	function runSimulation(resultFunction) {
+		const args = { 'start': start, 'end': end, 'steps': steps };
+		postToServer('run', resultFunction, args);
+	}
+
+	function handleLayoutJSON(json){
 		const layout = json['layout'];
 		const nodes = layout['nodes'];
 		const edges = layout['edges'];
@@ -497,78 +545,108 @@
 		nodes.forEach(node => graphCanvas.addShape(new Node(node)));
 	}
 
-	function handleResultJSON(json) {
+	function handleSimDataJSON(json) {
 		const result = json['result'];
 		chartCanvas.loadData(result['data'], result['time']);
+
+		let paramList = document.getElementById('parameter-list');
+		if (!paramList) {
+			paramList = document.createElement('select');
+			paramList.setAttribute('id', 'parameter-list');
+			paramList.setAttribute('multiple', '');
+
+			const paramListLabel = document.createElement('label');
+			paramListLabel.setAttribute('for', 'parameter-list');
+			paramListLabel.innerHTML = 'Parameters';
+
+			const controls = document.getElementById('controls');
+			controls.appendChild(paramListLabel);
+			controls.appendChild(paramList);
+		}
+
+		for (let i = paramList.options.length - 1; i >= 0; i--) {
+			paramList.remove(i)
+		}
+
+		for (let param of json['params']) {
+			const option = document.createElement('option');
+			option.addEventListener('click', handleParamSelection);
+			option.setAttribute('value', param);
+			option.innerHTML = param;
+			paramList.appendChild(option);
+		}
 	}
 
-	function handleFileSubmision(e) {
+	function getSliderCreator(param) {
+		return (value) => {
+			console.log(value);
+			const sliderContainer = document.createElement('div');
+			sliderContainer.setAttribute('id', param);
+			sliderContainer.setAttribute('class', 'slider');
+
+			const slider = document.createElement('input')
+			slider.setAttribute('type', 'range');
+			slider.setAttribute('value', value);
+			slider.setAttribute('min', value - 5);
+			slider.setAttribute('max', value + 5);
+			slider.addEventListener('change', handleSlider);
+
+			const label = document.createElement('label');
+			label.setAttribute('for', param);
+			label.innerHTML = param;
+
+			sliderContainer.appendChild(label);
+			sliderContainer.appendChild(slider);
+			document.getElementById('sliders').appendChild(sliderContainer)
+		}
+	}
+
+	function handleParamSelection(e) {
+		const param = e.target.text;
+		const slider = document.getElementById(param);
+		if (slider) {
+			slider.parentNode.removeChild(slider);
+		} else {
+			const sliderCreator = getSliderCreator(param);
+			postToServer('get_param', sliderCreator, { 'param': param });
+		}
+	}
+
+	function handleSlider(e) {
+		const slider = e.target;
+		const args = { 'param': slider.parentNode.id, 'value': slider.value };
+		postToServer('set_param', () => { return null }, args);
+		runSimulation( (json) => {
+			const result = json['result'];
+			chartCanvas.loadData(result['data'], result['time']);
+			chartCanvas.replot();
+		});
+	}
+
+	function handleSBMLSubmision(e) {
 		e.preventDefault();
-
-		const fileSelect = document.getElementById('file-select');
-		const gravity = document.getElementById('gravity').value;
-		const stiffness = document.getElementById('stiffness').value;
-
-		const formData = new FormData();
-		formData.append('sbml', fileSelect.files[0], 'sbml.xml');
-		formData.append('height', graphCanvas.height);
-		formData.append('width', graphCanvas.width);
-		formData.append('gravity', gravity);
-		formData.append('stiffness', stiffness);
-
-		const init = {
-			method: "POST",
-			body: formData,
-		};
-
-		fetch("upload", init)
-			.then(checkStatus)
-			.then(JSON.parse)
-			.then(handleGraphJSON)
-			.catch(console.log);
+		const args = {
+			'sbml': document.getElementById('file-select').files[0],
+			'height': graphCanvas.height,
+			'width': graphCanvas.width,
+			'gravity': document.getElementById('gravity').value,
+			'stiffness': document.getElementById('stiffness').value,
+		}
+		postToServer('upload', handleLayoutJSON, args);
 	}
 
 	function handleRunButton(e) {
 		e.preventDefault();
-
-		const start = document.getElementById('start-time').value;
-		const end = document.getElementById('end-time').value;
-		const steps = document.getElementById('time-step').value;
-
-		const formData = new FormData();
-		formData.append('start', start);
-		formData.append('end', end);
-		formData.append('steps', steps);
-
-		const init = {
-			method: "POST",
-			body: formData,
-		};
-
-		fetch("run", init)
-			.then(checkStatus)
-			.then(JSON.parse)
-			.then(handleResultJSON)
-			.catch(console.log);
+		start = document.getElementById('start-time').value;
+		end = document.getElementById('end-time').value;
+		steps = document.getElementById('time-step').value;
+		runSimulation(handleSimDataJSON);
 	}
 
-	function handleRedraw(e) {
+	function handleRedrawButton(e) {
 		e.preventDefault();
-
-		const formData = new FormData();
-		formData.append('height', graphCanvas.height);
-		formData.append('width', graphCanvas.width);
-
-		const init = {
-			method: "POST",
-			body: formData,
-		};
-
-		fetch("redraw", init)
-			.then(checkStatus)
-			.then(JSON.parse)
-			.then(handleGraphJSON)
-			.catch(console.log);
+		const args = { 'height': graphCanvas.height, 'width': graphCanvas.width }
+		postToServer('redraw', handleLayoutJSON, args);
 	}
 
 	function handleSelectAllButton() {
@@ -591,9 +669,9 @@
 		const runForm = document.getElementById('run-form');
 		const redrawForm = document.getElementById('redraw-form');
 		const selectAllButton = document.getElementById('select-all');
-		fileForm.addEventListener("change", handleFileSubmision);
+		fileForm.addEventListener("change", handleSBMLSubmision);
 		runForm.addEventListener('submit', handleRunButton);
-		redrawForm.addEventListener("submit", handleRedraw);
+		redrawForm.addEventListener("submit", handleRedrawButton);
 		selectAllButton.addEventListener('click', handleSelectAllButton);
 	}
 })();
