@@ -1,16 +1,15 @@
 import functools
 import roadrunner as rr
 import sbnw
+import socket
 
+# from flask_socketio import SocketIO, emit
 from flask import (
 	Blueprint, flash, g, redirect, render_template, request, session, url_for, jsonify, current_app
 )
 
 bp = Blueprint('sim', __name__)
-
-@bp.route('/', methods=('GET', 'POST'))
-def run_sim():
-	return render_template('index.html')
+# socketio = SocketIO()
 
 def gethyperedges(curves):
 	def find(data, p):
@@ -82,6 +81,10 @@ def getLayout(sbml, width, height, gravity, stiffness):
 
 	return layout
 
+@bp.route('/', methods=('GET', 'POST'))
+def run_sim():
+	return render_template('index.html')
+
 @bp.route('/upload', methods=['POST'])
 def upload():
 	sbmlfile = request.files['sbml']
@@ -118,7 +121,6 @@ def run():
 		'params': current_app.r.model.getGlobalParameterIds() 
 				+ current_app.r.model.getBoundarySpeciesIds(),
 	})
-
 
 @bp.route('/redraw', methods=['POST'])
 def redraw():

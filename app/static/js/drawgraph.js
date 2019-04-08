@@ -6,7 +6,10 @@
 	let chartCanvas;
 	let start;
 	let end;
+	let stepSize;
 	let steps;
+	let frequency;
+	let socket;
 
 	function checkStatus(response) {
 		if (response.status >= 200 && response.status < 300) {
@@ -218,8 +221,6 @@
 		constructor(canvas) {
 			super(canvas);
 			this.data = {};
-			this.time = {};
-			this.curDataLabels = new Set();
 			this.config = {
 				type: 'line',
 				options: {
@@ -255,21 +256,29 @@
 
 		loadData(data, time) {
 			this.data = data;
-			this.time = time;
 			this.chart.data.labels = time;
+		}
+
+		addDataPoint(data, time) {
+			this.chart.data.labels.push(time);
+			if (Object.keys(this.data).length === 0) {
+				Object.keys(data).forEach( label => {
+					this.data[label] = [0, data[label]];
+				});
+			} else {
+				Object.keys(this.data).forEach( label => this.data[label].push(data[label]) );
+			}
+			console.log('aDP', this.data);
 		}
 
 		clearCanvas() {
 			this.data = {};
-			this.time = {};
-			this.curDataLabels.clear();
 			this.chart.data = [];
 			this.chart.update();
 		}
 
 		clearData() {
 			this.data = {};
-			this.time = {};
 			this.chart.data = [];
 		}
 
@@ -281,13 +290,14 @@
 		replot() {
 			for (let config of this.chart.data.datasets) {
 				config.data = this.data[config.label];
+				console.log('r', config, this.data);
 			}
 			this.chart.update();
 		}
 
 		plotDataset(label) {
 			if (!this.chart.data.datasets.some(config => config.label == label)) {
-				this.curDataLabels.add(label);
+				console.log('pD', this.chart.data.datasets);
 				this.chart.data.datasets.push(this.getDatasetConfig(label, this.data[label]));
 				this.chart.update();
 				this.show();		
@@ -301,7 +311,6 @@
 			if (index !== -1) {
 				this.chart.data.datasets.splice(index, 1);
 				this.chart.update();
-				this.curDataLabels.delete(label);
 			}
 			if (!this.chart.data.datasets.length) {
 				this.hide();
@@ -310,7 +319,6 @@
 
 		hideAllDatasets() {
 			this.chart.data.datasets = [];
-			this.curDataLabels.clear();
 			this.chart.update();
 			this.hide();
 		}
@@ -318,7 +326,6 @@
 		plotAllDatasets() {
 			this.chart.data.datasets = [];
 			for (let label in this.data) {
-				this.curDataLabels.add(label);
 				this.chart.data.datasets.push(this.getDatasetConfig(label, this.data[label]));
 			}
 			this.chart.update();
@@ -347,7 +354,7 @@
 		}
 
 		isPlotted(label) {
-			return this.curDataLabels.has(label);
+			return this.chart.data.datasets.some(config => config.label == label);
 		}
 	}
 
@@ -522,48 +529,40 @@
 		postToServer('run', resultFunction, args);
 	}
 
+	function startSimulation() {
+		const args = { 'start': start, 'frequency': frequency, 'stepSize': stepSize };
+		socket = io.connect('http://localhost:5000');
+		socket.on('connect', () => {
+			console.log('connected!');
+			socket.emit('start', args)
+		});
+		socket.on('response', (data) => {
+			chartCanvas.addDataPoint(data, data['time']);
+			chartCanvas.replot();
+		});
+	}
+
 	function handleLayoutJSON(json){
 		const layout = json['layout'];
 		const nodes = layout['nodes'];
 		const edges = layout['edges'];
 
+		document.getElementById('redraw-form').style.display = 'inline';
+		document.getElementById('download-box').style.display = 'block';
 		let downloadLink = document.getElementById('sbml-download');
-		if (!downloadLink) {
-			downloadLink = document.createElement('a');
-			downloadLink.setAttribute('download', 'sbml.xml');
-			downloadLink.setAttribute('id', 'sbml-download');
-			downloadLink.innerHTML = 'Download Model SBML'
-			document.getElementById('controls').appendChild(downloadLink);
-		}
-		downloadLink.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(json['sbml']));
-
-		let redrawButton = document.getElementById('redraw-form');
-		redrawButton.style.display = 'inline';
+		downloadLink.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(json['sbml']);
 
 		graphCanvas.clear();
 		edges.forEach(edge => graphCanvas.addShape(new HyperEdge(edge)));
 		nodes.forEach(node => graphCanvas.addShape(new Node(node)));
 	}
 
-	function handleSimDataJSON(json) {
+	function handleRunOutput(json) {
 		const result = json['result'];
 		chartCanvas.loadData(result['data'], result['time']);
 
-		let paramList = document.getElementById('parameter-list');
-		if (!paramList) {
-			paramList = document.createElement('select');
-			paramList.setAttribute('id', 'parameter-list');
-			paramList.setAttribute('multiple', '');
-
-			const paramListLabel = document.createElement('label');
-			paramListLabel.setAttribute('for', 'parameter-list');
-			paramListLabel.innerHTML = 'Parameters';
-
-			const controls = document.getElementById('controls');
-			controls.appendChild(paramListLabel);
-			controls.appendChild(paramList);
-		}
-
+		document.getElementById('parameter-menu').style.display = 'block';
+		const paramList = document.getElementById('parameter-list');
 		for (let i = paramList.options.length - 1; i >= 0; i--) {
 			paramList.remove(i)
 		}
@@ -571,7 +570,7 @@
 		for (let param of json['params']) {
 			const option = document.createElement('option');
 			option.addEventListener('click', handleParamSelection);
-			option.setAttribute('value', param);
+			option.value = param;
 			option.innerHTML = param;
 			paramList.appendChild(option);
 		}
@@ -579,25 +578,79 @@
 
 	function getSliderCreator(param) {
 		return (value) => {
-			console.log(value);
+			const container = document.createElement('li');
+			const valueLabel = document.createElement('label');
+			const valueControl = document.createElement('input');
 			const sliderContainer = document.createElement('div');
-			sliderContainer.setAttribute('id', param);
-			sliderContainer.setAttribute('class', 'slider');
+			const minControl = document.createElement('input'); 
+			const slider = document.createElement('input');
+			const maxControl = document.createElement('input');
+			const stepsLabel = document.createElement('label');
+			const stepControl = document.createElement('input');
 
-			const slider = document.createElement('input')
-			slider.setAttribute('type', 'range');
-			slider.setAttribute('value', value);
-			slider.setAttribute('min', value - 5);
-			slider.setAttribute('max', value + 5);
-			slider.addEventListener('change', handleSlider);
+			container.id = param;
+			container.class = 'slider';
 
-			const label = document.createElement('label');
-			label.setAttribute('for', param);
-			label.innerHTML = param;
+			valueLabel.innerHTML = param + ' = ';
+			valueControl.type = 'number';
+			valueControl.min = 0;
+			valueControl.step = 0.01;
+			valueControl.value = value;
+			sliderContainer.style.display = 'block';
 
-			sliderContainer.appendChild(label);
+			minControl.value = 0;
+			minControl.min = 0;
+			minControl.style.float = 'left';
+			minControl.addEventListener('change', (e) => {
+				slider.min = minControl.value;
+				if (minControl.value >= slider.value) {
+					slider.value = minControl.value;
+					slider.dispatchEvent(new Event('change'));
+				}
+				if (minControl.value > maxControl.value) {
+					maxControl.value = minControl.value;
+					maxControl.dispatchEvent(new Event('change'));
+				}
+			});
+			slider.type = 'range';
+			slider.value = value;
+			slider.min = 0;
+			slider.max = 2 * value;
+			slider.step = 2 * value / 100;
+			slider.style.float = 'left';
+			slider.style.margin = '5px';
+			slider.addEventListener('change', (e) => {
+		 		const args = { 'param': param, 'value': slider.value };
+				postToServer('set_param', () => { return null }, args);
+				runSimulation( (json) => {
+					const result = json['result'];
+					chartCanvas.loadData(result['data'], result['time']);
+					chartCanvas.replot();
+				});
+				valueControl.value = slider.value;
+			});
+			maxControl.value = 2 * value;
+			maxControl.min = 0;
+			maxControl.style.float = 'left';
+			maxControl.addEventListener('change', (e) => {
+				slider.max = maxControl.value;
+				if (maxControl.value <= slider.value) {
+					slider.value = maxControl.value;
+					slider.dispatchEvent(new Event('change'));
+				}
+				if (minControl.value > maxControl.value) {
+					minControl.value = maxControl.value;
+					minControl.dispatchEvent(new Event('change'));
+				}
+			});
+
+			document.getElementById('sliders').appendChild(container);
+			container.appendChild(valueLabel);
+			container.appendChild(valueControl);
+			container.appendChild(sliderContainer);
+			sliderContainer.appendChild(minControl);
 			sliderContainer.appendChild(slider);
-			document.getElementById('sliders').appendChild(sliderContainer)
+			sliderContainer.appendChild(maxControl);
 		}
 	}
 
@@ -612,18 +665,7 @@
 		}
 	}
 
-	function handleSlider(e) {
-		const slider = e.target;
-		const args = { 'param': slider.parentNode.id, 'value': slider.value };
-		postToServer('set_param', () => { return null }, args);
-		runSimulation( (json) => {
-			const result = json['result'];
-			chartCanvas.loadData(result['data'], result['time']);
-			chartCanvas.replot();
-		});
-	}
-
-	function handleSBMLSubmision(e) {
+	function uploadSBML(e) {
 		e.preventDefault();
 		const args = {
 			'sbml': document.getElementById('file-select').files[0],
@@ -635,12 +677,20 @@
 		postToServer('upload', handleLayoutJSON, args);
 	}
 
-	function handleRunButton(e) {
+	function startOfflineSim(e) {
 		e.preventDefault();
-		start = document.getElementById('start-time').value;
-		end = document.getElementById('end-time').value;
-		steps = document.getElementById('time-step').value;
-		runSimulation(handleSimDataJSON);
+		start = document.getElementById('start-offline').value;
+		end = document.getElementById('end-offline').value;
+		steps = document.getElementById('step-offline').value;
+		runSimulation(handleRunOutput);
+	}
+
+	function startOnlineSim(e) {
+		e.preventDefault();
+		start = document.getElementById('start-online').value;
+		frequency = document.getElementById('frequency-online').value;
+		stepSize = document.getElementById('step-online').value;
+		startSimulation();
 	}
 
 	function handleRedrawButton(e) {
@@ -657,6 +707,16 @@
 		}
 	}
 
+	function changeSimMode() {
+		if (document.getElementById('offline').checked) {
+			document.getElementById('offline-form').style.display = 'block';
+			document.getElementById('online-form').style.display = 'none';
+		} else {
+			document.getElementById('offline-form').style.display = 'none';
+			document.getElementById('online-form').style.display = 'block';
+		}
+	}
+
 	function main() {
 		graphCanvas = new GraphCanvas(document.getElementById('canvas'));
 		graphCanvas.width = window.innerWidth / 2;
@@ -666,12 +726,16 @@
 		chartCanvas.hide();
 
 		const fileForm = document.getElementById('file-form');
-		const runForm = document.getElementById('run-form');
+		const offlineForm = document.getElementById('offline-form');
+		const onlineForm = document.getElementById('online-form');
 		const redrawForm = document.getElementById('redraw-form');
 		const selectAllButton = document.getElementById('select-all');
-		fileForm.addEventListener("change", handleSBMLSubmision);
-		runForm.addEventListener('submit', handleRunButton);
+		const simModeRadio = document.getElementById('sim-mode');
+		fileForm.addEventListener("change", uploadSBML);
+		offlineForm.addEventListener('submit', startOfflineSim);
+		onlineForm.addEventListener('submit', startOnlineSim);
 		redrawForm.addEventListener("submit", handleRedrawButton);
 		selectAllButton.addEventListener('click', handleSelectAllButton);
+		simModeRadio.addEventListener('change', changeSimMode);
 	}
 })();

@@ -51,16 +51,38 @@
 			display: table-row;
 		}
 
-		#file-form label {
+		#file-form p * {
 			display: table-cell;
 		}
 
-		#file-form input {
-			display: table-cell;
+		#parameter-menu {
+			display: none;
+		}
+
+		#parameter-list {
+			width: 40%;
+		}
+
+		#download-box {
+			display: none;
+		}
+
+		#online-form {
+			display: none;
+		}
+
+		#sliders {
+			list-style-type: none;
+			display: table;
+		}
+
+		li {
+			display: table-row;
 		}
 	</style>
 	<script src="{{ url_for('static', filename='js/drawgraph.js') }}"></script>
 	<script src="{{ url_for('static', filename='js/lib/Chart.min.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/lib/socket.io.min.js') }}"></script>
 </head>
 <body>
 	<div id="page" class="row">
@@ -80,39 +102,65 @@
 						<input type="file" id="file-select" name="sbml" /><br />
 					</p>
 				</form>
-				<form id="run-form" method="post">
+				<div id='sim-mode'>
+					<input type='radio' name='menu' id='offline' value='offline' checked />
+					<label for='offline'>Offline</label>
+					<input type='radio' name='menu' id='online' value='online' />
+					<label for='online'>Online</label>
+				</div>
+				<form id="offline-form" method="post">
 					<p>
-						<label>Start Time</label>
-						<input type="number" name="start-time" id="start-time" min="0" value="0" /><br />
+						<label for='start-offline'>Start Time</label>
+						<input type="number" name="start-offline" id="start-offline" min="0" value="0" /><br />
 					</p>
 					<p>
-						<label>End Time</label>
-						<input type="number" name="end-time" id="end-time" min="0" value="10" /><br />
+						<label for='end-offline'>End Time</label>
+						<input type="number" name="end-offline" id="end-offline" min="0" value="10" /><br />
 					</p>
 					<p>
-						<label>Num Steps</label>
-						<input type="number" name="time-step" id="time-step" min="2" value="100" /><br />
+						<label for='step-offline'>Num Steps</label>
+						<input type="number" name="step-offline" id="step-offline" min="2" value="100" /><br />
 					</p>
 					<button type="submit" id="run-button">Run</button>
+				</form>
+				<form id="online-form" method="post">
+					<p>
+						<label for='start-online'>Start Time</label>
+						<input type="number" name="start-online" id="start-online" min="0" value="0" /><br />
+					</p>
+					<p>
+						<label for='frequency-online'>Frequency</label>
+						<input type="number" name="frequency-online" id="frequency-online" min="0" value="1" /><br />
+					</p>
+					<p>
+						<label for='step-online'>Step Size</label>
+						<input type="number" name="step-online" id="step-online" min="2" value="1" /><br />
+					</p>
+					<button type="submit" id="start-button">Start</button>
 				</form>
 				<form id="redraw-form" action="redraw" method="post">
 					<button type="submit" id="redraw-button">Redraw</button>
 				</form>
-				<form id="radio-menu">
+				<form id="select-menu">
 					<input type="radio" name="menu" id="select" value="select" checked />
 					<label for="select">Select</label>
 					<input type="radio" name="menu" id="plot" value="plot" />
 					<label for="plot">Plot</label>
 				</form>
+				<div id='parameter-menu'>
+					<label for='parameter-list'>Parameters</label>
+					<select id='parameter-list' multiple></select>
+				</div>
+				<div id='download-box'>
+					<a href="" download='sbml.xml' id='sbml-download'>Download Model SBML</a>
+				</div>
 			</div>
 			<button id='select-all'>Select All</button>
-			<div>
-				<form id='sliders'></form>
-			</div>
+			<ul id='sliders'></ul>
+			<canvas id="chart"></canvas>
 		</div>
 		<div id="graphs" class="column">
 			<canvas id="canvas"></canvas>
-			<canvas id="chart"></canvas>
 		</div>
 	</div>
 </body>

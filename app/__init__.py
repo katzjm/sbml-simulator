@@ -1,5 +1,8 @@
 import os
 from flask import Flask
+from flask_socketio import SocketIO, emit
+import sim
+import time
 
 def create_app(test_config=None):
 	app = Flask(__name__, instance_relative_config=True)
@@ -17,7 +20,6 @@ def create_app(test_config=None):
 	except OSError:
 		pass
 
-	from . import sim
 	app.register_blueprint(sim.bp)
 	app.add_url_rule('/', endpoint='index')
 	app.add_url_rule('/upload', endpoint='index')
@@ -27,3 +29,24 @@ def create_app(test_config=None):
 	app.r = None
 	
 	return app
+
+app = create_app()
+socketio = SocketIO(app)
+
+@socketio.on('start')
+def start(json):
+	simTime = int(json['start'])
+	frequency = int(json['frequency'])
+	timestep = int(json['stepSize'])
+
+	realTime = time.time()
+	while True:
+		if time.time() - realTime >= frequency:
+			simTime = app.r.oneStep(simTime, timestep)
+			realTime = time.time()
+			response = { name.strip('[]'): amt for name, amt in
+				zip(app.r.timeCourseSelections, app.r.getSelectedValues())}
+			emit('response', response)
+
+if __name__ == '__main__':
+	socketio.run(app, debug=True)
