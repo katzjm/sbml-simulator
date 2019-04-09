@@ -116,7 +116,7 @@
 		draw(ctx) {
 			ctx.fillStyle = this.color;
 			ctx.strokeStyle = this.color;
-			ctx.lineWidth = 5;
+			ctx.lineWidth = 1;
 			ctx.beginPath();
 			ctx.moveTo(this.startx, this.starty);
 			ctx.bezierCurveTo(

@@ -9,36 +9,6 @@ from flask import (
 )
 
 bp = Blueprint('sim', __name__)
-# socketio = SocketIO()
-
-def gethyperedges(curves):
-	def find(data, p):
-		if p != data[p]:
-		        data[p] = find(data, data[p])
-		return data[p]
-
-	def union(data, i, j):
-		pi, pj = find(data, i), find(data, j)
-		if pi != pj:
-			data[pi] = pj
-
-	ends = dict()
-	for curve in curves:
-		end1 = curve['bezier']['start']
-		end2 = curve['bezier']['end']
-		ends[end1] = end1
-		ends[end2] = end2
-	for curve in curves:
-		union(ends, curve['bezier']['start'], curve['bezier']['end'])
-
-	edgeParents = dict()
-	for curve in curves:
-		edgeParent = find(ends, curve['bezier']['start'])
-		if edgeParent not in edgeParents:
-			edgeParents[edgeParent] = list()
-		edgeParents[edgeParent].append(curve)
-
-	return list(edgeParents.values())
 
 def getLayout(sbml, width, height, gravity, stiffness):
 	model = sbnw.loadsbml(sbml)
@@ -62,9 +32,11 @@ def getLayout(sbml, width, height, gravity, stiffness):
 			'centroid': tuple(node.centroid),
 		})
 
-	curves = list()
-	for reaction in model.network.rxns:
-		for curve in reaction.curves:
+	edges = list()
+	rxnIds = rr.RoadRunner(sbml).model.getReactionIds()
+	for i, rxn in enumerate(model.network.rxns):
+		curves = list()
+		for curve in rxn.curves:
 			curveType = curve[4]
 			arrow = [tuple(point) for point in curve[5]]
 			curves.append({
@@ -77,7 +49,11 @@ def getLayout(sbml, width, height, gravity, stiffness):
 				},
 				'arrow': arrow,
 			})
-	layout['edges'] = gethyperedges(curves)
+		edges.append({
+			'id': rxnIds[i],
+			'curves': curves,
+		})
+	layout['edges'] = edges
 
 	return layout
 
@@ -116,6 +92,7 @@ def run():
 			time = resultdata[i]
 		else:
 			data[name.strip('[]')] = resultdata[i]
+
 	return jsonify({
 		'result': { 'data': data, 'time': time },
 		'params': current_app.r.model.getGlobalParameterIds() 
