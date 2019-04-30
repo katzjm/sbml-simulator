@@ -28,28 +28,59 @@
 		return color;
 	}
 
+	function postToServer(url, responseHandler, args) {
+		const formData = new FormData();
+		Object.keys(args).forEach( (key) => formData.append(key, args[key]) );
+
+		const init = {
+			method: "POST",
+			body: formData,
+		};
+
+		fetch(url, init)
+			.then(checkStatus)
+			.then(JSON.parse)
+			.then(responseHandler)
+			.catch(console.log);
+	}
+
+	function runSimulation(resultFunction) {
+		const args = { 'start': start, 'end': end, 'steps': steps };
+		postToServer('run', resultFunction, args);
+	}
+
 	class Shape {
-		constructor (defaultColor, selectColor) {
-			this.defaultColor = defaultColor;
-			this.selectColor = selectColor;
+		constructor (fillColor, edgeColor) {
+			this.fillColor = fillColor;
+			this.edgeColor = edgeColor;
 			this.textColor = 'black';
-			this.color = this.defaultColor;
+			this.selectColor = 'green';
 			this.isSelected = false;
-			this.isPlotted = false;
 		}
 
 		contains(ctx, mx, my) {
-			const pixelColor1 = ctx.getImageData(mx , my, 1, 1).data;
-
-			const oldColor = this.color;
+			const oldFillColor = this.fillColor;
+			const oldEdgeColor = this.edgeColor;
 			const oldTextColor = this.textColor;
-			this.color = 'rgb(123, 123, 123)';
-			this.textColor = 'rgb(123, 123, 123)';
-			this.draw(ctx);
-			const pixelColor2 = ctx.getImageData(mx , my, 1, 1).data;
+			const oldSelectColor = this.selectColor;
 
-			this.color = oldColor;
+			if (this.x <= mx && mx <= this.x + this.width && this.y <= my && my <= this.y + this.height) {
+				console.log(this);
+			}
+
+			const pixelColor1 = ctx.getImageData(mx , my, 1, 1).data;
+			const color = getRandomColor();
+			this.fillColor = color;
+			this.edgeColor = color;
+			this.textColor = color;
+			this.selectColor = color;
+			this.draw(ctx);
+
+			const pixelColor2 = ctx.getImageData(mx , my, 1, 1).data;
+			this.fillColor = oldFillColor;
+			this.edgeColor = oldEdgeColor;
 			this.textColor = oldTextColor;
+			this.selectColor = oldSelectColor;
 			this.draw(ctx);
 
 			for (let i = 0; i < 3; i++) {
@@ -62,19 +93,16 @@
 
 		select() {
 			this.isSelected = true;
-			this.color = this.selectColor;
 		}
 
 		deselect() {
 			this.isSelected = false;
-			this.color = this.defaultColor;
 		}
 	}
 
 	class Node extends Shape {
 		constructor(nodeJSON) {
-			super('skyblue', 'green');
-			this.textColor = 'black';
+			super('skyblue', 'grey');
 			this.id = nodeJSON['id'];
 			this.x = nodeJSON['centroid'][0] - nodeJSON['width'] / 2;
 			this.y = nodeJSON['centroid'][1] - nodeJSON['height'] / 2;
@@ -83,8 +111,10 @@
 		}
 
 		draw(ctx) {
-			ctx.fillStyle = this.color;
+			ctx.fillStyle = this.fillColor;
+			ctx.strokeStyle = this.isSelected ? this.selectColor : this.edgeColor;
 			ctx.fillRect(this.x, this.y, this.width, this.height);
+			ctx.strokeRect(this.x, this.y, this.width, this.height);
 			ctx.fillStyle = this.textColor;
 			ctx.textAlign = "center";
 			ctx.font = this.height / 2  + "px sans-serif";
@@ -99,7 +129,7 @@
 
 	class Curve extends Shape {
 		constructor(curveJSON) {
-			super('black', 'green');
+			super('black', 'grey');
 			const bezier = curveJSON['bezier'];
 			this.startx = bezier['start'][0];
 			this.starty = bezier['start'][1];
@@ -111,12 +141,13 @@
 			this.endy = bezier['end'][1];
 			this.type = curveJSON['type'];
 			this.arrow = curveJSON['arrow'];
+			this.lineWidth = 1;
 		}
 
 		draw(ctx) {
-			ctx.fillStyle = this.color;
-			ctx.strokeStyle = this.color;
-			ctx.lineWidth = 1;
+			ctx.fillStyle = this.fillColor;
+			ctx.strokeStyle = this.isSelected ? this.selectColor : this.edgeColor;
+			ctx.lineWidth = this.lineWidth;
 			ctx.beginPath();
 			ctx.moveTo(this.startx, this.starty);
 			ctx.bezierCurveTo(
@@ -157,40 +188,48 @@
 	}
 
 	class HyperEdge extends Shape {
-		constructor(curves) {
-			super('black', 'green');
-			if (curves[0] instanceof Curve) {
-				this.curves = curves;
+		constructor(edge) {
+			super('black', 'grey');
+			this.id = edge.id;
+			if (edge.curves[0] instanceof Curve) {
+				this.curves = edge.curves;
 			} else {
-				this.curves = curves.map(c => new Curve(c));
+				this.curves = edge.curves.map(c => new Curve(c));
 			}
 		}
 
 		draw(ctx) {
-			this.curves.forEach(curve => curve.draw(ctx));
+			this.curves.forEach( (curve) => curve.draw(ctx) );
 		}
 
 		drag(dx, dy) {
-			this.curves.forEach(curve => curve.drag(dx, dy));
+			this.curves.forEach( (curve) => curve.drag(dx, dy) );
 		}
 
 		contains(ctx, mx, my) {
-			for (let curve of this.curves) {
-				if (curve.contains(ctx, mx, my)) {
-					return true;
-				}
-			}
-			return false;
+			return this.curves.some( (curve) => curve.contains(ctx, mx, my) );
 		}
 
 		select() {
 			super.select();
-			this.curves.forEach(curve => curve.select());
+			this.curves.forEach( (curve) => curve.select() );
 		}
 
 		deselect() {
 			super.deselect();
-			this.curves.forEach(curve => curve.deselect());
+			this.curves.forEach( (curve) => curve.deselect() );
+		}
+
+		set lineWidth(newLineWidth) {
+			this.curves.forEach( (curve) => curve.lineWidth = newLineWidth );
+		}
+
+		set curveEdgeColor(color) {
+			this.curves.forEach( (curve) => curve.edgeColor = color );
+		}
+
+		set curveFillColor(color) {
+			this.curves.forEach( (curve) => curve.fillColor = color );
 		}
 	}
 
@@ -200,20 +239,36 @@
 			this.ctx = canvas.getContext('2d');
 		}
 
-		set height(newHeight) {
+		set canvasHeight(newHeight) {
 			this.canvas.height = newHeight;
 		}
 
-		set width(newWidth) {
+		set canvasWidth(newWidth) {
 			this.canvas.width = newWidth;
 		}
 
-		get height() {
+		set cssHeight(newHeight) {
+			this.canvas.style.height = newHeight;
+		}
+
+		set cssWidth(newWidth) {
+			this.canvas.style.width = newWidth;
+		}
+
+		get canvasHeight() {
 			return this.canvas.height;
 		}
 
-		get width() {
+		get canvasWidth() {
 			return this.canvas.width;
+		}
+
+		get cssHeight() {
+			return this.canvas.style.height;
+		}
+
+		get cssWidth() {
+			return this.canvas.style.width;
 		}
 	}
 
@@ -254,51 +309,41 @@
 			this.chart = new Chart(this.ctx, this.config);
 		}
 
-		loadData(data, time) {
+		loadData(data) {
 			this.data = data;
-			this.chart.data.labels = time;
+			this.chart.data.labels = this.data['time'];
 		}
 
-		addDataPoint(data, time) {
-			this.chart.data.labels.push(time);
-			if (Object.keys(this.data).length === 0) {
-				Object.keys(data).forEach( label => {
-					this.data[label] = [0, data[label]];
-				});
+		pushDataPoint(newData) {
+			const labels = Object.keys(this.data);
+			if (labels.length === 0) {
+				Object.keys(newData).forEach( (label) => this.data[label] = [newData[label]] );
 			} else {
-				Object.keys(this.data).forEach( label => this.data[label].push(data[label]) );
+				labels.forEach( (label) => this.data[label].push(newData[label]) );
 			}
-			console.log('aDP', this.data);
-		}
-
-		clearCanvas() {
-			this.data = {};
-			this.chart.data = [];
-			this.chart.update();
-		}
-
-		clearData() {
-			this.data = {};
-			this.chart.data = [];
-		}
-
-		clearPlot() {
-			this.chart.data = [];
-			this.chart.update();
 		}
 
 		replot() {
+			const windowStep = document.getElementById('window-steps');
 			for (let config of this.chart.data.datasets) {
-				config.data = this.data[config.label];
-				console.log('r', config, this.data);
+				const data = this.data[config.label];
+				if (windowStep.offsetParent !== null && document.getElementById('window').checked) {
+					const windowLen = Math.max(0, data.length - windowStep.value);
+					config.data = data.slice(windowLen);
+					this.chart.data.labels = this.data['time'].slice(windowLen);
+				} else {
+					config.data = data;
+					this.chart.data.labels = this.data['time'];
+				}
 			}
 			this.chart.update();
 		}
 
 		plotDataset(label) {
+			console.log(label);
 			if (!this.chart.data.datasets.some(config => config.label == label)) {
-				console.log('pD', this.chart.data.datasets);
 				this.chart.data.datasets.push(this.getDatasetConfig(label, this.data[label]));
+				console.log(this.chart.data.datasets);
 				this.chart.update();
 				this.show();		
 			}
@@ -333,11 +378,11 @@
 		}
 
 		hide() {
-			this.canvas.style.height = '0px';
+			this.canvas.style.display = 'none';
 		}
 
 		show() {
-			this.canvas.style.height = '';
+			this.canvas.style.display = 'block';
 		}
 
 		getDatasetConfig(label, data) {
@@ -354,17 +399,19 @@
 		}
 
 		isPlotted(label) {
-			return this.chart.data.datasets.some(config => config.label == label);
+			return this.chart.data.datasets.some( (config) => config.label == label );
 		}
 	}
 
 	class GraphCanvas extends Canvas {
 		constructor(canvas) {
 			super(canvas);
+			this.backgroundColor = '#000000';
 			this.shapes = [];
 			this.drawInterval = 30;
 			this.valid = false;
 			this.panning = false;
+			this.drag = null;
 			this.originX = 0;
 			this.originY = 0;
 			this.scale = 1;
@@ -372,46 +419,29 @@
 			this.selectPoint = {};
 			setInterval(() => this.draw(), this.drawInterval);
 
-			canvas.addEventListener("mousedown", e => {
+			canvas.addEventListener("mousedown", (e) => {
+				e.preventDefault();
 				const simpleMouse = this.getSimpleMousePos(e);
-				if (document.getElementById('select').checked) {
-					if (!e.shiftKey) {
-						this.clearSelection();
+				for (let shape of this.shapes) {																																	
+					if (shape.contains(this.ctx, simpleMouse.x, simpleMouse.y)) {
+						this.clickShape(shape, e);
+						this.drag = shape;
+						break;
 					}
-					for (let shape of this.shapes) {																																	
-						if (shape.contains(this.ctx, simpleMouse.x, simpleMouse.y)) {
-							shape.isSelected ? this.deselectShape(shape) : this.selectShape(shape);
-							break;
-						}
-					}
-					this.panning = false;
-				} else if (document.getElementById('plot').checked) {
-					if (!e.shiftKey) {
-						chartCanvas.hideAllDatasets();
-					}
-					let mouseOnGraph = false;
-					for (let shape of this.shapes) {																																	
-						if (shape.contains(this.ctx, simpleMouse.x, simpleMouse.y)) {
-							if (shape instanceof Node) {
-								chartCanvas.isPlotted(shape.id) ? chartCanvas.hideDataset(shape.id) : chartCanvas.plotDataset(shape.id);
-							}
-							mouseOnGraph = true;
-							break;
-						}
-					}
-					if (!mouseOnGraph) {
-						const scaledMouse = this.getScaledMousePos(e);
-						this.panOffsetX = scaledMouse.x;
-						this.panOffsetY = scaledMouse.y;
-						this.panning = true;
-					}
+				}
+				if (!this.drag) {
+					const scaledMouse = this.getScaledMousePos(e);
+					this.panOffsetX = scaledMouse.x;
+					this.panOffsetY = scaledMouse.y;
+					this.panning = true;
 				}
 				this.valid = false;
 			}, true);
 
 			canvas.addEventListener("mousemove", e => {
+				e.preventDefault();
+				const mouse = this.getScaledMousePos(e);
 				if (this.panning) {
-					const mouse = this.getScaledMousePos(e);
 					const dx = mouse.x - this.panOffsetX;
 					const dy = mouse.y - this.panOffsetY;
 					this.panOffsetX = mouse.x;
@@ -420,15 +450,26 @@
 					this.originX -= dx;
 					this.originY -= dy;
 					this.valid = false;
+				} else if (this.drag) {
+					const args = {
+						'id': this.drag.id,
+						'dx': mouse.x - this.drag.x,
+						'dy': mouse.y - this.drag.y,
+					}
+					postToServer('drag', handleLayoutJSON, args);
 				}
 			}, true);
 
 			canvas.addEventListener("mouseup", e => {
+				e.preventDefault();
 				this.panning = false;
+				this.drag = null;
 			}, true);
 
 			canvas.addEventListener("mouseout", e => {
+				e.preventDefault();
 				this.panning = false;
+				this.drag = null;
 			}, true);
 
 			canvas.addEventListener("wheel", e => {
@@ -446,6 +487,22 @@
 				this.scale *= zoom;
 				this.valid = false;
 			}, true);
+		}
+
+		clickShape(shape, e) {
+			if (document.getElementById('select').checked) {
+				if (!e.shiftKey) {
+					this.clearSelection();
+				}																																	
+				shape.isSelected ? this.deselectShape(shape) : this.selectShape(shape);
+			} else if (document.getElementById('plot').checked) {
+				if (!e.shiftKey) {
+					chartCanvas.hideAllDatasets();
+				}
+				const id = shape instanceof Node ? '[' + shape.id + ']' : shape.id;																															
+				chartCanvas.isPlotted(id) ? chartCanvas.hideDataset(id) : chartCanvas.plotDataset(id);
+			}
+			this.valid = false;
 		}
 
 		addShape(shape) {
@@ -479,18 +536,18 @@
 		draw() {
 			if (!this.valid) {	
 				this.ctx.clearRect(this.originX, this.originY, this.canvas.width / this.scale, this.canvas.height / this.scale);
-				this.shapes.forEach(shape => shape.draw(this.ctx));
+				this.shapes.forEach( (shape) => shape.draw(this.ctx) );
 				this.valid = true;
 			}
 		}
 
 		selectAllShapes() {
-			this.shapes.forEach(shape => this.selectShape(shape));	
+			this.shapes.forEach( (shape) => this.selectShape(shape) );	
 			this.valid = false;		
 		}
 
 		clearSelection() {
-			this.selection.forEach(shape => shape.deselect());
+			this.selection.forEach( (shape) => shape.deselect() );
 			this.selection = [];
 			this.valid = false;
 		}
@@ -506,27 +563,39 @@
 			this.selection.splice(this.selection.indexOf(shape), 1);
 			this.valid = false;
 		}
-	}
 
-	function postToServer(url, responseHandler, args) {
-		const formData = new FormData();
-		Object.keys(args).forEach( key => formData.append(key, args[key]));
+		get hyperedges() {
+			return this.shapes.filter( (shape) => shape instanceof HyperEdge );
+		}
 
-		const init = {
-			method: "POST",
-			body: formData,
-		};
+		get nodes() {
+			return this.shapes.filter( (shape) => shape instanceof Node );
+		}
 
-		fetch(url, init)
-			.then(checkStatus)
-			.then(JSON.parse)
-			.then(responseHandler)
-			.catch(console.log);
-	}
+		set lineWidth(width) {
+			this.hyperedges.forEach( (hyperedge) => hyperedge.lineWidth = width );
+			this.valid = false;
+		}
 
-	function runSimulation(resultFunction) {
-		const args = { 'start': start, 'end': end, 'steps': steps };
-		postToServer('run', resultFunction, args);
+		set nodeFillColor(color) {
+			this.nodes.forEach( (node) => node.fillColor = color );
+			this.valid = false;
+		}
+
+		set nodeEdgeColor(color) {
+			this.nodes.forEach( (node) => node.edgeColor = color );
+			this.valid = false;
+		}
+
+		set hyperedgeFillColor(color) {
+			this.hyperedges.forEach( (hyperedge) => hyperedge.curveFillColor = color );
+			this.valid = false;
+		}
+
+		set hyperedgeEdgeColor(color) {
+			this.hyperedges.forEach( (hyperedge) => hyperedge.curveEdgeColor = color );
+			this.valid = false;
+		}
 	}
 
 	function startSimulation() {
@@ -537,7 +606,7 @@
 			socket.emit('start', args)
 		});
 		socket.on('response', (data) => {
-			chartCanvas.addDataPoint(data, data['time']);
+			chartCanvas.pushDataPoint(data);
 			chartCanvas.replot();
 		});
 	}
@@ -548,18 +617,30 @@
 		const edges = layout['edges'];
 
 		document.getElementById('redraw-form').style.display = 'inline';
-		document.getElementById('download-box').style.display = 'block';
+		document.getElementById('sbml-download').style.display = 'block';
 		let downloadLink = document.getElementById('sbml-download');
 		downloadLink.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(json['sbml']);
 
 		graphCanvas.clear();
-		edges.forEach(edge => graphCanvas.addShape(new HyperEdge(edge)));
-		nodes.forEach(node => graphCanvas.addShape(new Node(node)));
+		edges.forEach( (edge) => graphCanvas.addShape(new HyperEdge(edge)) );
+		nodes.forEach( (node) => graphCanvas.addShape(new Node(node)) );
+
+		const selectList = document.getElementById('select-list');
+		for (let i = selectList.options.length - 1; i >= 0; i--) {
+			selectList.remove(i)
+		}
+
+		graphCanvas.shapes.forEach( (shape) => {
+			const option = document.createElement('option');
+			option.value = shape.id;
+			option.innerHTML = shape.id;
+			option.addEventListener('click', (e) => graphCanvas.clickShape(shape, e) );
+			selectList.appendChild(option);
+		});
 	}
 
 	function handleRunOutput(json) {
-		const result = json['result'];
-		chartCanvas.loadData(result['data'], result['time']);
+		chartCanvas.loadData(json['data']);
 
 		document.getElementById('parameter-menu').style.display = 'block';
 		const paramList = document.getElementById('parameter-list');
@@ -669,8 +750,8 @@
 		e.preventDefault();
 		const args = {
 			'sbml': document.getElementById('file-select').files[0],
-			'height': graphCanvas.height,
-			'width': graphCanvas.width,
+			'height': graphCanvas.canvasHeight,
+			'width': graphCanvas.canvasWidth,
 			'gravity': document.getElementById('gravity').value,
 			'stiffness': document.getElementById('stiffness').value,
 		}
@@ -695,7 +776,7 @@
 
 	function handleRedrawButton(e) {
 		e.preventDefault();
-		const args = { 'height': graphCanvas.height, 'width': graphCanvas.width }
+		const args = { 'height': graphCanvas.canvasHeight, 'width': graphCanvas.canvasWidth }
 		postToServer('redraw', handleLayoutJSON, args);
 	}
 
@@ -709,33 +790,86 @@
 
 	function changeSimMode() {
 		if (document.getElementById('offline').checked) {
-			document.getElementById('offline-form').style.display = 'block';
+			document.getElementById('offline-form').style.display = 'flex';
 			document.getElementById('online-form').style.display = 'none';
+			document.getElementById('start-menu').style.display = 'none';
 		} else {
 			document.getElementById('offline-form').style.display = 'none';
-			document.getElementById('online-form').style.display = 'block';
+			document.getElementById('online-form').style.display = 'flex';
+			if (document.getElementById('plot').checked) {
+				document.getElementById('start-menu').style.display = 'block';
+			}
 		}
 	}
 
 	function main() {
-		graphCanvas = new GraphCanvas(document.getElementById('canvas'));
-		graphCanvas.width = window.innerWidth / 2;
-		graphCanvas.height = window.innerHeight;
+		const canvas = document.getElementById('canvas');
+		const boundingRect = canvas.getBoundingClientRect();
+		graphCanvas = new GraphCanvas(canvas);
+		graphCanvas.canvasWidth = boundingRect.width;
+		graphCanvas.canvasHeight = boundingRect.height;
+		graphCanvas.cssWidth = boundingRect.width + 'px';
+		graphCanvas.cssHeight = boundingRect.height + 'px';
 
 		chartCanvas = new ChartCanvas(document.getElementById('chart'));
 		chartCanvas.hide();
 
-		const fileForm = document.getElementById('file-form');
-		const offlineForm = document.getElementById('offline-form');
-		const onlineForm = document.getElementById('online-form');
-		const redrawForm = document.getElementById('redraw-form');
-		const selectAllButton = document.getElementById('select-all');
-		const simModeRadio = document.getElementById('sim-mode');
-		fileForm.addEventListener("change", uploadSBML);
-		offlineForm.addEventListener('submit', startOfflineSim);
-		onlineForm.addEventListener('submit', startOnlineSim);
-		redrawForm.addEventListener("submit", handleRedrawButton);
-		selectAllButton.addEventListener('click', handleSelectAllButton);
-		simModeRadio.addEventListener('change', changeSimMode);
+		document.getElementById('upload-wrapper').addEventListener("change", uploadSBML);
+		document.getElementById('offline-form').addEventListener('submit', startOfflineSim);
+		document.getElementById('online-form').addEventListener('submit', startOnlineSim);
+		document.getElementById('redraw-form').addEventListener("submit", handleRedrawButton);
+		document.getElementById('select-all').addEventListener('click', handleSelectAllButton);
+		document.getElementById('sim-mode').addEventListener('change', changeSimMode);
+
+		document.getElementById('select-menu').addEventListener('change', (e) => {
+			if (document.getElementById('plot').checked && document.getElementById('online').checked) {
+				document.getElementById('start-menu').style.display = 'block';
+			} else {
+				document.getElementById('start-menu').style.display = 'none';
+			}
+		});
+
+		const lineThicknessEditor = document.getElementById('line-thickness-editor');
+		lineThicknessEditor.addEventListener('input', (e) => {
+			graphCanvas.lineWidth = lineThicknessEditor.value;
+		});
+
+		const pickrConfig = {
+		    components: {
+
+		        preview: true,
+		        opacity: true,
+		        hue: true,
+
+		        interaction: {
+		            hex: true,
+		            rgba: true,
+		            hsla: true,
+		            input: true,
+		            save: true
+		        }
+		    }
+		};
+
+		const rfPickr = Pickr.create(Object.assign({ el: '#reaction-fill' }, pickrConfig));
+		const rePickr = Pickr.create(Object.assign({ el: '#reaction-edge' }, pickrConfig));
+		const nfPickr = Pickr.create(Object.assign({ el: '#node-fill' }, pickrConfig));
+		const nePickr = Pickr.create(Object.assign({ el: '#node-edge' }, pickrConfig));
+
+		rfPickr.on('change', (hsva, _) => {
+			graphCanvas.hyperedgeFillColor = hsva.toHEX().toString();
+		});
+
+		rePickr.on('change', (hsva, _) => {
+			graphCanvas.hyperedgeEdgeColor = hsva.toHEX().toString();
+		});
+
+		nfPickr.on('change', (hsva, _) => {
+			graphCanvas.nodeFillColor = hsva.toHEX().toString();
+		});
+
+		nePickr.on('change', (hsva, _) => {
+			graphCanvas.nodeEdgeColor = hsva.toHEX().toString();
+		});
 	}
 })();

@@ -8,160 +8,244 @@
 			margin: 0px;
 		}
 
+		main {
+			display: flex;
+			flex-flow: row wrap; 
+			width: 100vw;
+			height: 100vh;
+		}
+
+		header {
+			height: 5vh;
+			width: 100vw;
+			background-color: lightgray;
+			display: flex;
+			justify-content: space-between;
+		}
+
+		header form {
+			width: 40%;
+			display: flex;
+			flex-direction: row;
+		}
+
 		.column {
+			height: 49.5vh;
+			bottom: 0px;
+		}
+
+		.column-seperator {
+			width: 1vw;
+			cursor: col-resize;
+			background-color: gray;
+			border: 1px solid black;
+		}
+
+		#sim-mode {
+			display: flex;
+			flex-direction: row;
+			width: 20%;
+		}
+
+		#sim-mode input {
+			width: 100%;
+			height: 100%;
+			opacity: 0;
+			position: absolute;
+			top: 0px;
+			left: 0px;
+			cursor: pointer;
+		}
+
+		#sim-mode button {
+			width: 100%;
+			height: 100%;
+			font-size: 30px;
+		}
+
+		#upload-wrapper {
+			position: relative;
+			height: 100%;
+			width: 30%;
+			overflow: hidden;
+		}
+
+		#upload-button {
+			background-color: purple;
+			height: 100%;
+			width: 100%;
+			font-size: 30px;
+		}
+
+		#file-select {
+			position: absolute;
+			top: 0px;
+			left: 0px;
+			font-size: 100px;
+			opacity: 0;
+			cursor: pointer;
+		}
+
+		.sim-num-wrapper {
+			position: relative;
+			height: 100%;
+			width: 20%;
+			overflow: hidden;
+		}
+
+		.sim-radio-wrapper {
+			position: relative;
 			height: 100%;
 			width: 50%;
-			float: left;
-		}
-
-		.row:after {
-			content: "";
-			display: table;
-			clear: both;
-		}
-
-		#graphs {
-			position: relative;
+			overflow: hidden;
+			background: green;
+			border: 1px solid black;
 		}
 
 		#canvas {
 			border: 1px solid blue;
+			width: 100vw;
+			height: 44.5vh;
+			z-index: 10;
+			flex-shrink: 0;
+		}
+
+		#row-seperator {
+			height: 1vh;
+			width: 100vw;
+			background-color: gray;
+			cursor: row-resize;
+			border: 1px solid black;
+		}
+
+		
+		#controls {
+			background-color: lightblue;
+			width: 24.5vw;
+		}
+
+		#graph-control {
+			background-color: lightgreen;
+			width: 24.5vw;
+		}
+
+		#chart-container {
+			width: 49vw;
 		}
 
 		#chart {
-			position: absolute;
 			bottom: 0%;
 			background-color: white;
 			display: none;
-		}
-
-		#controls {
-			background-color: lightblue;
-		}
-
-		#redraw-form {
-			display: none;
-		}
-
-		#file-form {
-			display: table;
-		}
-
-		#file-form p {
-			display: table-row;
-		}
-
-		#file-form p * {
-			display: table-cell;
-		}
-
-		#parameter-menu {
-			display: none;
-		}
-
-		#parameter-list {
-			width: 40%;
-		}
-
-		#download-box {
-			display: none;
-		}
-
-		#online-form {
-			display: none;
-		}
-
-		#sliders {
-			list-style-type: none;
-			display: table;
-		}
-
-		li {
-			display: table-row;
 		}
 	</style>
 	<script src="{{ url_for('static', filename='js/drawgraph.js') }}"></script>
 	<script src="{{ url_for('static', filename='js/lib/Chart.min.js') }}"></script>
 	<script src="{{ url_for('static', filename='js/lib/socket.io.min.js') }}"></script>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.css"/>
+	<script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
+	<!-- OR -->
+	<script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.es5.min.js"></script>
 </head>
 <body>
-	<div id="page" class="row">
-		<div class="column">		
-			<div id="controls">	
-				<form id="file-form" action="file-upload" method="post">
-					<p>
-						<label>Stiffness</label>
-						<input type="number" name="stiffness" id="stiffness" min="0" value="50" /><br />
-					</p>
-					<p>
-						<label>Gravity</label>
-						<input type="number" name="gravity" id="gravity" min="0" value="0" step="0.1" /><br />
-					</p>
-					<p>
-						<label for="file-select">Load an SBML file</label>
-						<input type="file" id="file-select" name="sbml" /><br />
-					</p>
-				</form>
-				<div id='sim-mode'>
-					<input type='radio' name='menu' id='offline' value='offline' checked />
-					<label for='offline'>Offline</label>
-					<input type='radio' name='menu' id='online' value='online' />
-					<label for='online'>Online</label>
+	<main>
+		<header>
+			<div id="upload-wrapper">
+				<button id="upload-button">Upload Model</button>
+				<input type="file" id="file-select" name="sbml" />
+			</div>
+			<div id="sim-mode">
+				<div class="sim-radio-wrapper">
+					<button id="offline-button">Offline</button>
+					<input type="radio" name="menu" id="offline" value="offline" checked />
 				</div>
-				<form id="offline-form" method="post">
-					<p>
-						<label for='start-offline'>Start Time</label>
-						<input type="number" name="start-offline" id="start-offline" min="0" value="0" /><br />
-					</p>
-					<p>
-						<label for='end-offline'>End Time</label>
-						<input type="number" name="end-offline" id="end-offline" min="0" value="10" /><br />
-					</p>
-					<p>
-						<label for='step-offline'>Num Steps</label>
-						<input type="number" name="step-offline" id="step-offline" min="2" value="100" /><br />
-					</p>
-					<button type="submit" id="run-button">Run</button>
-				</form>
-				<form id="online-form" method="post">
-					<p>
-						<label for='start-online'>Start Time</label>
-						<input type="number" name="start-online" id="start-online" min="0" value="0" /><br />
-					</p>
-					<p>
-						<label for='frequency-online'>Frequency</label>
-						<input type="number" name="frequency-online" id="frequency-online" min="0" value="1" /><br />
-					</p>
-					<p>
-						<label for='step-online'>Step Size</label>
-						<input type="number" name="step-online" id="step-online" min="2" value="1" /><br />
-					</p>
-					<button type="submit" id="start-button">Start</button>
-				</form>
-				<form id="redraw-form" action="redraw" method="post">
-					<button type="submit" id="redraw-button">Redraw</button>
-				</form>
-				<form id="select-menu">
-					<input type="radio" name="menu" id="select" value="select" checked />
-					<label for="select">Select</label>
-					<input type="radio" name="menu" id="plot" value="plot" />
-					<label for="plot">Plot</label>
-				</form>
-				<div id='parameter-menu'>
-					<label for='parameter-list'>Parameters</label>
-					<select id='parameter-list' multiple></select>
-				</div>
-				<div id='download-box'>
-					<a href="" download='sbml.xml' id='sbml-download'>Download Model SBML</a>
+				<div class="sim-radio-wrapper">
+					<button id="online-button">Online</button>
+					<input type="radio" name="menu" id="online" value="online" />
 				</div>
 			</div>
-			<button id='select-all'>Select All</button>
-			<ul id='sliders'></ul>
+			<form id="offline-form" class="sim-form" method="post">
+				<div class="sim-num-wrapper">	
+					<label for="start-offline">Start Time</label>
+					<input type="number" id="start-offline" min="0" value="0" />
+				</div>
+				<div class="sim-num-wrapper">					
+					<label for="end-offline">End Time</label>
+					<input type="number" id="end-offline" min="0" value="10" />
+				</div>
+				<div class="sim-num-wrapper">					
+					<label for="step-offline">Num Steps</label>
+					<input type="number" id="step-offline" min="2" value="100" />
+				</div>
+				<button type="submit" id="run-button">Run</button>
+			</form>
+			<form id="online-form" class="sim-form" method="post" style="display: none;">
+				<div class="sim-num-wrapper">					
+					<label for="start-online">Start Time</label>
+					<input type="number" id="start-online" min="0" value="0" />
+				</div>
+				<div class="sim-num-wrapper">					
+					<label for="frequency-online">Frequency</label>
+					<input type="number" id="frequency-online" min="0" value="1" />
+				</div>
+				<div class="sim-num-wrapper">
+					<label for="step-online">Step Size</label>
+					<input type="number" id="step-online" min="2" value="2" />
+				</div>
+				<button type="submit" id="start-button">Start</button>
+			</form>
+		</header>
+		<canvas id="canvas"></canvas>
+		<div id='row-seperator'></div>
+		<div id="controls" class="column">	
+			<form id="redraw-form" action="redraw" method="post" style="display: none;">
+				<button type="submit" id="redraw-button">Redraw</button>
+			</form>
+			<form id="select-menu">
+				<input type="radio" name="menu" id="select" value="select" checked />
+				<label for="select">Select</label>
+				<input type="radio" name="menu" id="plot" value="plot" />
+				<label for="plot">Plot</label>
+			</form>
+			<form id="start-menu" style="display: none;">
+				<input type="radio" name="menu" id="from-0" value="from-0" checked />
+				<label for="from-0">From 0</label>
+				<input type="radio" name="menu" id="window" value="window" />
+				<label for="window">Window</label>
+				<input type="number" id="window-steps">
+			</form>
+			<div id="parameter-menu" style="display: none;">
+				<label for="parameter-list">Parameters</label>
+				<select id="parameter-list" multiple></select>
+			</div>
+		</div>
+		<ul id="sliders" class="column" style="display: none;"></ul>
+		<div class="column column-seperator"></div>
+		<div id="graph-control" class="column">
+			<p>Reaction Color:</p><br />
+			<label for="reaction-fill">Fill</label>
+			<input class="reaction-fill" value="ab2567" id="reaction-fill" />
+			<label for="reaction-edge">Edge</label>
+			<input class="reaction-edge" value="ab2567" id="reaction-edge" /><br />
+			<p>Node Color:</p><br />
+			<label for="node-fill">Fill</label>
+			<input class="node-fill" value="ab2567" id="node-fill" />
+			<label for="node-edge">Edge</label>
+			<input class="node-edge" value="ab2567" id="node-edge" /><br />
+			<label for="line-thickness-editor">Line Thickness</label>
+			<input type="number" id="line-thickness-editor" min="0" />
+			<label for="stiffness">Stiffness</label>
+			<input type="number" name="stiffness" id="stiffness" min="0" value="50" /><br />
+			<label for="gravity">Gravity</label>
+			<input type="number" name="gravity" id="gravity" min="0" value="0" step="0.1" /><br />
+			<a href="" download="sbml.xml" id="sbml-download">Download Model</a>
+			<button id="select-all">Select All</button>
+			<select id="select-list" multiple></select>
+		</div>
+		<div class="column column-seperator"></div>
+		<div id="chart-container" class="column">
 			<canvas id="chart"></canvas>
 		</div>
-		<div id="graphs" class="column">
-			<canvas id="canvas"></canvas>
-		</div>
-	</div>
+	</main>
 </body>
 </html>

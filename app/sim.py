@@ -10,21 +10,34 @@ from flask import (
 
 bp = Blueprint('sim', __name__)
 
-def getLayout(sbml, width, height, gravity, stiffness):
-	model = sbnw.loadsbml(sbml)
+def setmodeldrag(nid, dx, dy):
+	for node in current_app.model.network.nodes:
+		if node.id == nid:
+			node.unlock()
+			node.centroid.x += dx
+			node.centroid.y += dy
+			print('1 ' + str(node.centroid))
+		node.lock()
+	current_app.model.network.autolayout()
+	for node in current_app.model.network.nodes:
+		if node.id == nid:
+			print('2' + str(node.centroid))
 
-	if not model.network.haslayout():
-		model.network.randomize(0, 0, width, height)
-		model.network.autolayout(k=stiffness, grav=gravity)
-	model.network.fitwindow(0, 0, width, height)
+def setmodel(width, height, gravity=0, stiffness=50):
+	current_app.model = sbnw.loadsbml(current_app.sbml)
+	if not current_app.model.network.haslayout():
+		current_app.model.network.randomize(0, 0, width, height)
+		current_app.model.network.autolayout(k=stiffness, grav=gravity)
+	current_app.model.network.fitwindow(0, 0, width, height)
 
+def getLayout():
 	layout = {
 		'nodes': list(),
 		'edges': None,
-		'sbml': model.getsbml(),
+		'sbml': current_app.model.getsbml(),
 	}
 
-	for node in model.network.nodes:
+	for node in current_app.model.network.nodes:
 		layout['nodes'].append({
 			'id': node.id,
 			'height': node.height,
@@ -33,8 +46,8 @@ def getLayout(sbml, width, height, gravity, stiffness):
 		})
 
 	edges = list()
-	rxnIds = rr.RoadRunner(sbml).model.getReactionIds()
-	for i, rxn in enumerate(model.network.rxns):
+	r = rr.RoadRunner(current_app.sbml)
+	for rid, rxn in zip(r.model.getReactionIds(), current_app.model.network.rxns):
 		curves = list()
 		for curve in rxn.curves:
 			curveType = curve[4]
@@ -50,7 +63,7 @@ def getLayout(sbml, width, height, gravity, stiffness):
 				'arrow': arrow,
 			})
 		edges.append({
-			'id': rxnIds[i],
+			'id': rid,
 			'curves': curves,
 		})
 	layout['edges'] = edges
@@ -58,23 +71,9 @@ def getLayout(sbml, width, height, gravity, stiffness):
 	return layout
 
 @bp.route('/', methods=('GET', 'POST'))
-def run_sim():
+def runsim():
 	return render_template('index.html')
 
-@bp.route('/upload', methods=['POST'])
-def upload():
-	sbmlfile = request.files['sbml']
-	current_app.sbml = sbmlfile.read().decode('UTF-8')
-	current_app.r = rr.RoadRunner(current_app.sbml)
-	
-	height = int(request.form['height'])
-	width = int(request.form['width'])
-	gravity = float(request.form['gravity'])	
-	stiffness = float(request.form['stiffness'])
-
-	return jsonify({ 
-		'layout': getLayout(current_app.sbml, width, height, gravity, stiffness),
-	})
 
 @bp.route('/run', methods=['POST'])
 def run():
@@ -86,24 +85,41 @@ def run():
 	ndresult = current_app.r.simulate(start, end, points=steps)
 	resultdata = ndresult.transpose().tolist()
 	data = dict()
-	time = None
 	for i, name in enumerate(ndresult.colnames):
-		if name == 'time':
-			time = resultdata[i]
-		else:
-			data[name.strip('[]')] = resultdata[i]
+		data[name] = resultdata[i]
 
 	return jsonify({
-		'result': { 'data': data, 'time': time },
+		'data': data,
 		'params': current_app.r.model.getGlobalParameterIds() 
 				+ current_app.r.model.getBoundarySpeciesIds(),
 	})
+
+@bp.route('/upload', methods=['POST'])
+def upload():
+	sbmlfile = request.files['sbml']
+	current_app.sbml = sbmlfile.read().decode('UTF-8')
+	current_app.r = rr.RoadRunner(current_app.sbml)
+	current_app.r.timeCourseSelections += current_app.r.getIds(rr.SelectionRecord.REACTION_RATE)
+	
+	height = int(request.form['height'])
+	width = int(request.form['width'])
+	setmodel(width, height)
+	return jsonify({ 'layout': getLayout() })
 
 @bp.route('/redraw', methods=['POST'])
 def redraw():
 	height = int(request.form['height'])
 	width = int(request.form['width'])
-	return jsonify(getLayout(session['sbml'], width, height));
+	setmodel(width, height)
+	return jsonify({ 'layout': getLayout() })
+
+@bp.route('/drag', methods=['POST'])
+def drag():
+	nid = request.form['id']
+	dx = float(request.form['dx'])
+	dy = float(request.form['dy'])
+	setmodeldrag(nid, dx, dy)
+	return jsonify({ 'layout': getLayout() })
 
 @bp.route('/get_param', methods=['POST'])
 def getparam():

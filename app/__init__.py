@@ -44,7 +44,7 @@ def start(json):
 		if time.time() - realTime >= frequency:
 			simTime = app.r.oneStep(simTime, timestep)
 			realTime = time.time()
-			response = { name.strip('[]'): amt for name, amt in
+			response = { name: amt for name, amt in
 				zip(app.r.timeCourseSelections, app.r.getSelectedValues())}
 			emit('response', response)
 
