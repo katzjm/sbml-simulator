@@ -3,6 +3,9 @@ import roadrunner as rr
 import sbnw
 import socket
 
+import matplotlib; matplotlib.use('TkAgg')
+from libsbml_draw.model.sbml_layout import SBMLlayout
+
 # from flask_socketio import SocketIO, emit
 from flask import (
 	Blueprint, flash, g, redirect, render_template, request, session, url_for, jsonify, current_app
@@ -14,17 +17,15 @@ def setmodeldrag(nid, dx, dy):
 	for node in current_app.model.network.nodes:
 		if node.id == nid:
 			node.unlock()
-			node.centroid.x += dx
-			node.centroid.y += dy
-			print('1 ' + str(node.centroid))
+			node.centroid = sbnw.point(node.centroid.x + dx, node.centroid.y + dy)
 		node.lock()
-	current_app.model.network.autolayout()
-	for node in current_app.model.network.nodes:
-		if node.id == nid:
-			print('2' + str(node.centroid))
+	current_app.model.network.recenterjunct()
 
-def setmodel(width, height, gravity=0, stiffness=50):
+def setmodel(width, height, gravity=0, stiffness=20):
 	current_app.model = sbnw.loadsbml(current_app.sbml)
+	current_app.zz = SBMLlayout(current_app.sbml)
+	current_app.zz.setLayoutAlgorithmOptions(grav=gravity, k=stiffness, prerandom=1)
+	current_app.zz.regenerateLayoutAndNetwork()
 	if not current_app.model.network.haslayout():
 		current_app.model.network.randomize(0, 0, width, height)
 		current_app.model.network.autolayout(k=stiffness, grav=gravity)
@@ -34,20 +35,56 @@ def getLayout():
 	layout = {
 		'nodes': list(),
 		'edges': None,
-		'sbml': current_app.model.getsbml(),
+		'sbml': current_app.zz.getSBMLString(),
 	}
 
-	for node in current_app.model.network.nodes:
+	# for nid in current_app.zz.getNodeIds():
+	# 	layout['nodes'].append({
+	# 		'id': nid,
+	# 		'height': current_app.zz.getNodeHeight(nid),
+	# 		'width': current_app.zz.getNodeWidth(nid),
+	# 		'centroid': current_app.zz.getNodeCentroid(nid),
+	# 	})
+
+	# edges = list()
+	# for rid in current_app.zz.getReactionIds():
+	# 	curves = list()
+	# 	for curve in rxn.curves:
+	# 		curveType = curve[4]
+	# 		arrow = [tuple(point) for point in curve[5]]
+	# 		curves.append({
+	# 			'type': curveType,
+	# 			'bezier': {
+	# 				'start': tuple(curve[0]),
+	# 				'cp1': tuple(curve[1]),
+	# 				'cp2': tuple(curve[2]),
+	# 				'end': tuple(curve[3]),
+	# 			},
+	# 			'arrow': arrow,
+	# 		})
+	# 	edges.append({
+	# 		'id': rid,
+	# 		'curves': curves,
+	# 	})
+	# layout['edges'] = edges
+
+	nodes = current_app.model.network.nodes
+	concentrations = current_app.r.model.getFloatingSpeciesConcentrations()
+	rids = current_app.r.model.getReactionIds()
+	rxns = current_app.model.network.rxns
+	rxnrates = current_app.r.model.getReactionRates()
+
+	for node in nodes:
 		layout['nodes'].append({
 			'id': node.id,
 			'height': node.height,
 			'width': node.width,
 			'centroid': tuple(node.centroid),
+			'value': current_app.r.getValue('[{}]'.format(node.id)),
 		})
 
 	edges = list()
-	r = rr.RoadRunner(current_app.sbml)
-	for rid, rxn in zip(r.model.getReactionIds(), current_app.model.network.rxns):
+	for rid, rxn, rate in zip(rids, rxns, rxnrates):
 		curves = list()
 		for curve in rxn.curves:
 			curveType = curve[4]
@@ -61,6 +98,7 @@ def getLayout():
 					'end': tuple(curve[3]),
 				},
 				'arrow': arrow,
+				'rate': rate,
 			})
 		edges.append({
 			'id': rid,
@@ -71,7 +109,7 @@ def getLayout():
 	return layout
 
 @bp.route('/', methods=('GET', 'POST'))
-def runsim():
+def index():
 	return render_template('index.html')
 
 
@@ -90,8 +128,10 @@ def run():
 
 	return jsonify({
 		'data': data,
-		'params': current_app.r.model.getGlobalParameterIds() 
-				+ current_app.r.model.getBoundarySpeciesIds(),
+		'params': current_app.r.model.getGlobalParameterIds(),
+		'bounds': current_app.r.model.getBoundarySpeciesIds(),
+		'comparts': current_app.r.model.getCompartmentIds(),
+		'moieties': current_app.r.model.getConservedMoietyIds(),
 	})
 
 @bp.route('/upload', methods=['POST'])
