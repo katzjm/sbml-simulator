@@ -1,0 +1,7 @@
+venv/
+app/untitled.sublime-project
+app/untitled.sublime-workspace
+app/__pycache__/
+__pycache__/
+.spyproject/
+.DS_Store
