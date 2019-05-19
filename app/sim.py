@@ -27,9 +27,9 @@ def setmodel(width, height, gravity=0, stiffness=20):
 	current_app.zz.setLayoutAlgorithmOptions(grav=gravity, k=stiffness, prerandom=1)
 	current_app.zz.regenerateLayoutAndNetwork()
 	if not current_app.model.network.haslayout():
-		current_app.model.network.randomize(0, 0, width, height)
+		current_app.model.network.randomize(5, 10, width - 5, height - 10)
 		current_app.model.network.autolayout(k=stiffness, grav=gravity)
-	current_app.model.network.fitwindow(0, 0, width, height)
+	current_app.model.network.fitwindow(5, 10, width - 5, height - 10)
 
 def getLayout():
 	layout = {
