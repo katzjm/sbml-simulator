@@ -5,5 +5,5 @@ app = create_app()
 socketio = SocketIO(app)
 
 if __name__ == '__main__':
-	import os; print(os.getcwd())
+	import os; raise Exception(os.getcwd())
 	socketio.run(app)
