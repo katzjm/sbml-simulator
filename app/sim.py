@@ -23,9 +23,9 @@ def setmodeldrag(nid, dx, dy):
 
 def setmodel(width, height, gravity=0, stiffness=20):
 	current_app.model = sbnw.loadsbml(current_app.sbml)
-	current_app.zz = SBMLlayout(current_app.sbml)
-	current_app.zz.setLayoutAlgorithmOptions(grav=gravity, k=stiffness, prerandom=1)
-	current_app.zz.regenerateLayoutAndNetwork()
+	# current_app.zz = SBMLlayout(current_app.sbml)
+	# current_app.zz.setLayoutAlgorithmOptions(grav=gravity, k=stiffness, prerandom=1)
+	# current_app.zz.regenerateLayoutAndNetwork()
 	if not current_app.model.network.haslayout():
 		current_app.model.network.randomize(5, 10, width - 5, height - 10)
 		current_app.model.network.autolayout(k=stiffness, grav=gravity)
@@ -35,7 +35,8 @@ def getLayout():
 	layout = {
 		'nodes': list(),
 		'edges': None,
-		'sbml': current_app.zz.getSBMLString(),
+		# 'sbml': current_app.zz.getSBMLString(),
+		'sbml': current_app.model.getsbml(),
 	}
 
 	# for nid in current_app.zz.getNodeIds():
