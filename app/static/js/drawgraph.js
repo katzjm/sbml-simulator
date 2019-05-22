@@ -970,7 +970,7 @@
 	}
 
 	function main() {
-		console.log(window.location.hostname);
+		console.log(window.location.href);
 		const canvasContainer = document.getElementById('canvas-container');
 		const canvas = document.getElementById('canvas');
 		const boundingRect = canvas.getBoundingClientRect();
