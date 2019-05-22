@@ -330,8 +330,9 @@
 		}
 
 		pushDataPoint(newData) {
-			const labels = Object.keys(simData);
+			const labels = simData ? Object.keys(simData) : [];
 			if (labels.length === 0) {
+				simData = {};
 				Object.keys(newData).forEach( (label) => simData[label] = [newData[label]] );
 			} else {
 				labels.forEach( (label) => simData[label].push(newData[label]) );
@@ -462,8 +463,8 @@
 	class GradientCanvas extends Canvas {
 		constructor(canvas) {
 			super(canvas);
-			this.hiColor = 'red';
-			this.loColor = 'blue';
+			this.hiColor = '#F93F3F';
+			this.loColor = '#01DFF7';
 			this.redraw();
 		}
 
@@ -536,18 +537,18 @@
 					const args = { 'id': this.dragShape.id, 'dx': dx, 'dy': dy };
 					postToServer('drag', handleLayoutJSON, args);
 				} else {
-					this.tip.hide();
-					const simpleMouse = this.getSimpleMousePos(e);
-					const hoverShape = this.getContainedShape(simpleMouse.x, simpleMouse.y);
-					if (hoverShape) {
-						this.tip.show();
-						this.tip.moveTo(
-							hoverShape.x + hoverShape.width,
-							hoverShape.y - (this.tip.canvas.scrollHeight - hoverShape.height) / 2
-						);
-						this.tip.text = hoverShape.value;
-						this.tip.draw();
-					}																				
+					// this.tip.hide();
+					// const simpleMouse = this.getSimpleMousePos(e);
+					// const hoverShape = this.getContainedShape(simpleMouse.x, simpleMouse.y);
+					// if (hoverShape) {
+					// 	this.tip.show();
+					// 	this.tip.moveTo(
+					// 		hoverShape.x + hoverShape.width,
+					// 		hoverShape.y - (this.tip.canvas.scrollHeight - hoverShape.height) / 2
+					// 	);
+					// 	this.tip.text = hoverShape.value;
+					// 	this.tip.draw();
+					// }																				
 				}
 				this.valid = false;
 			}, true);
@@ -636,7 +637,6 @@
 				this.ctx.clearRect(this.originX, this.originY, this.canvas.width / this.scale, this.canvas.height / this.scale);
 				this.shapes.forEach( (shape) => shape.draw(this.ctx) );
 				this.valid = true;
-				console.log('drew');
 			}
 		}
 
@@ -748,7 +748,7 @@
 
 	function startSimulation() {
 		const args = { 'start': start, 'frequency': frequency, 'stepSize': stepSize };
-		socket = io.connect('http://localhost:5000');
+		socket = io.connect('http://localhost:80');
 		socket.on('connect', () => {
 			console.log('connected!');
 			socket.emit('start', args)
@@ -757,6 +757,10 @@
 			chartCanvas.pushDataPoint(data);
 			chartCanvas.replot();
 		});
+		socket.on('error', (e) => {
+			console.error("WebSocket error observed:", e);
+			socket.close();
+		})
 	}
 
 	function handleLayoutJSON(json){
@@ -930,6 +934,7 @@
 
 	function startOnlineSim(e) {
 		e.preventDefault();
+		console.log("another");
 		start = document.getElementById('start-online').value;
 		frequency = document.getElementById('frequency-online').value;
 		stepSize = document.getElementById('step-online').value;

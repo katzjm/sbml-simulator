@@ -3,8 +3,8 @@ import roadrunner as rr
 import sbnw
 import socket
 
-import matplotlib; matplotlib.use('TkAgg')
-from libsbml_draw.model.sbml_layout import SBMLlayout
+# import matplotlib; matplotlib.use('TkAgg')
+# from libsbml_draw.model.sbml_layout import SBMLlayout
 
 # from flask_socketio import SocketIO, emit
 from flask import (

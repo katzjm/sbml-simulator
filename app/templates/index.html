@@ -34,6 +34,10 @@
 			justify-content: space-around;
 		}
 
+		select {
+			text-align: center;
+		}
+
 		main {
 			display: flex;
 			flex-flow: row wrap; 
@@ -44,15 +48,17 @@
 
 
 		header form {
-			width: 40%;
+			width: 50%;
 			display: flex;
 			flex-direction: row;
 		}
+
 		.min-input {
 			float : left;
 			width : 20%;
 			background-color : rgba(0, 0, 0, 0);
 			border-color : rgba(0, 0, 0, 0);
+			text-align: right;
 		}
 
 		.slider {
@@ -91,7 +97,7 @@
 		#sim-mode {
 			display: flex;
 			flex-direction: row;
-			width: 20%;
+			width: 40%;
 		}
 
 		#sim-mode input {
@@ -111,7 +117,7 @@
 		}
 
 		#redraw-form {
-			width: 7%;
+			width: 20%;
 		}
 
 		#redraw-button {
@@ -122,7 +128,7 @@
 		#upload-wrapper {
 			position: relative;
 			height: 100%;
-			width: 30%;
+			width: 50%;
 			overflow: hidden;
 		}
 
@@ -145,7 +151,7 @@
 		.sim-num-wrapper {
 			position: relative;
 			height: 100%;
-			width: 20%;
+			width: 40%;
 			overflow: hidden;
 		}
 
@@ -191,27 +197,41 @@
 
 		#parameter-menu {
 			background-color: lightblue;
-			width: 24%;
+			width: 49.5%;
 			display: flex;
-			justify-content: space-around;
+			flex-flow: row wrap;
+			justify-content: space-evenly;
 			align-items: center;
+			text-align: center;
 		}
 
 		#parameter-list {
 			height: 80%;
 			width: 20%;
+			font-size: 20px;
+			border-radius: 10px;
+			border: 5px solid darkgray;
 		}
 
 		#sliders {
 			height: 80%;
 			width: 60%;
-			border: 1px solid gray;
+			border: 5px solid darkgray;
 			list-style: none;
 			display: flex;
 			flex-flow: column;
 			overflow: hidden;
 			overflow-y: scroll;
 			padding-left: 0px;
+			border-radius: 10px;
+			background-color: rgba(0, 0, 255, 0.1);
+		}
+
+		#sliders li {
+			border: 1px solid black;
+			background-color: lightgrey;
+			border-radius: 5px;
+
 		}
 
 		#graph-control {
@@ -220,7 +240,7 @@
 		}
 
 		#chart-container {
-			width: 50%;
+			width: 49.5%;
 		}
 
 		#chart {
@@ -230,7 +250,7 @@
 		}
 
 		.sidebar-slider {
-			height: 13.5vh;
+			height: 12.9vh;
 			display: flex;
 			justify-content: center;
 			align-items: center;
@@ -283,7 +303,7 @@
 		#gradient {
 			height: 10vh;
 			width: 100%;
-			background: linear-gradient(to bottom, blue, red);
+			background: linear-gradient(to bottom, lightblue, pink);
 		}
 
 		#art-palette {
@@ -324,6 +344,28 @@
 			justify-content: center;
 			align-items: center;
 		}
+
+		#left-header {
+			display: flex;
+			flex-direction: row;
+			width: 50vw;
+			justify-content: flex-start;
+		}
+
+		#right-header {
+			display: flex;
+			flex-direction: row;
+			justify-content: flex-end;
+			width: 50vw;
+		}
+
+		header button[type=submit] {
+			width: 20%;
+		}
+
+		.fa-play {
+			font-size: 300%;
+		}
 	</style>
 	<script src="{{ url_for('static', filename='js/drawgraph.js') }}"></script>
 	<script src="{{ url_for('static', filename='js/lib/Chart.min.js') }}"></script>
@@ -337,60 +379,64 @@
 </head>
 <body>
 	<header>
-		<div id="upload-wrapper">
-			<button id="upload-button">Upload Model</button>
-			<input type="file" id="file-select" name="sbml" />
+		<div id="left-header">
+			<div id="upload-wrapper">
+				<button id="upload-button">Upload Model</button>
+				<input type="file" id="file-select" name="sbml" />
+			</div>
+			<form id="redraw-form" action="redraw" method="post">
+				<button type="submit" id="redraw-button">Redraw</button>
+			</form>
 		</div>
-		<form id="redraw-form" action="redraw" method="post">
-			<button type="submit" id="redraw-button">Redraw</button>
-		</form>
-		<div id="sim-mode">
-			<div class="sim-radio-wrapper">
-				<button id="offline-button">Offline</button>
-				<input type="radio" name="menu" id="offline" value="offline" checked />
+		<div id="right-header">
+			<div id="sim-mode">
+				<div class="sim-radio-wrapper">
+					<button id="offline-button">Offline</button>
+					<input type="radio" name="menu" id="offline" value="offline" checked />
+				</div>
+				<div class="sim-radio-wrapper">
+					<button id="online-button">Online</button>
+					<input type="radio" name="menu" id="online" value="online" />
+				</div>
 			</div>
-			<div class="sim-radio-wrapper">
-				<button id="online-button">Online</button>
-				<input type="radio" name="menu" id="online" value="online" />
-			</div>
+			<form id="offline-form" class="sim-form" method="post">
+				<div class="sim-num-wrapper">	
+					<label for="start-offline">Start Time</label>
+					<input type="number" id="start-offline" min="0" value="0" />
+				</div>
+				<div class="sim-num-wrapper">					
+					<label for="end-offline">End Time</label>
+					<input type="number" id="end-offline" min="0" value="300" />
+				</div>
+				<div class="sim-num-wrapper">					
+					<label for="step-offline">Num Steps</label>
+					<input type="number" id="step-offline" min="2" value="101" />
+				</div>
+				<button type="submit" id="run-button"><i class="fas fa-play"></i></button>
+			</form>
+			<form id="online-form" class="sim-form" method="post" style="display: none;">
+				<div class="sim-num-wrapper">					
+					<label for="start-online">Start Time</label>
+					<input type="number" id="start-online" min="0" value="0" />
+				</div>
+				<div class="sim-num-wrapper">					
+					<label for="frequency-online">Frequency</label>
+					<input type="number" id="frequency-online" min="0" value="1" />
+				</div>
+				<div class="sim-num-wrapper">
+					<label for="step-online">Step Size</label>
+					<input type="number" id="step-online" min="2" value="2" />
+				</div>
+				<button type="submit" id="start-button"><i class="fas fa-play"></i></button>
+			</form>
+			<form id="start-menu" style="display: none;">
+				<input type="radio" name="menu" id="from-0" value="from-0" checked />
+				<label for="from-0">From 0</label>
+				<input type="radio" name="menu" id="window" value="window" />
+				<label for="window">Window</label>
+				<input type="number" id="window-steps">
+			</form>
 		</div>
-		<form id="offline-form" class="sim-form" method="post">
-			<div class="sim-num-wrapper">	
-				<label for="start-offline">Start Time</label>
-				<input type="number" id="start-offline" min="0" value="0" />
-			</div>
-			<div class="sim-num-wrapper">					
-				<label for="end-offline">End Time</label>
-				<input type="number" id="end-offline" min="0" value="10" />
-			</div>
-			<div class="sim-num-wrapper">					
-				<label for="step-offline">Num Steps</label>
-				<input type="number" id="step-offline" min="2" value="100" />
-			</div>
-			<button type="submit" id="run-button"><i class="fas fa-play"></i></button>
-		</form>
-		<form id="online-form" class="sim-form" method="post" style="display: none;">
-			<div class="sim-num-wrapper">					
-				<label for="start-online">Start Time</label>
-				<input type="number" id="start-online" min="0" value="0" />
-			</div>
-			<div class="sim-num-wrapper">					
-				<label for="frequency-online">Frequency</label>
-				<input type="number" id="frequency-online" min="0" value="1" />
-			</div>
-			<div class="sim-num-wrapper">
-				<label for="step-online">Step Size</label>
-				<input type="number" id="step-online" min="2" value="2" />
-			</div>
-			<button type="submit" id="start-button"><i class="fas fa-play"></i></button>
-		</form>
-		<form id="start-menu" style="display: none;">
-			<input type="radio" name="menu" id="from-0" value="from-0" checked />
-			<label for="from-0">From 0</label>
-			<input type="radio" name="menu" id="window" value="window" />
-			<label for="window">Window</label>
-			<input type="number" id="window-steps">
-		</form>
 	</header>
 	<div id='sidebar'>
 		<div class="sidebar-wrapper">
@@ -460,7 +506,10 @@
 			<input type="range" name="time" id="canvas-time" />
 		</div>
 		<div id='row-seperator'></div>
-		<div id="parameter-menu" class="column">	
+		<div id="parameter-menu" class="column">
+			<div style="width: 200%;">
+				<h1>Parameters</h1>
+			</div>	
 			<select id="parameter-list" size="3"></select>
 			<ul id="sliders"></ul>
 		</div>
