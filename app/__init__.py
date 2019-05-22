@@ -1,7 +1,7 @@
 import os
 from flask import Flask, current_app
 from flask_socketio import SocketIO, emit
-import sim
+from . import sim
 import time
 import threading
 
@@ -38,16 +38,17 @@ running = threading.Event()
 running.set()
 done = threading.Event()
 def worker(simTime, frequency, timestep):
-	realTime = time.time()
-	while not done.is_set():
-		if (running.is_set()):
-			if time.time() - realTime >= frequency:
-				simTime = current_app.r.oneStep(simTime, timestep)
-				realTime = time.time()
-				response = { name: amt for name, amt in zip(current_app.r.timeCourseSelections, current_app.r.getSelectedValues()) }
-				print(response)
-				socketio.emit('response', response)
-	done.clear()
+	with app.app_context():
+		realTime = time.time()
+		while not done.is_set():
+			if (running.is_set()):
+				if time.time() - realTime >= frequency:
+					simTime = app.r.oneStep(simTime, timestep)
+					realTime = time.time()
+					response = { name: amt for name, amt in zip(app.r.timeCourseSelections, app.r.getSelectedValues()) }
+					print(response)
+					socketio.emit('response', response)
+		done.clear()
 
 @socketio.on('pause')
 def pause():
@@ -69,7 +70,7 @@ def start(json):
 	timestep = int(json['stepSize'])
 
 
-	current_app.r.reset()
+	app.r.reset()
 	threading.Thread(target=worker, args=(simTime, frequency, timestep)).start()
 
 if __name__ == '__main__':
