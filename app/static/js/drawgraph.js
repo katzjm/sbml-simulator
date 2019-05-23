@@ -748,8 +748,7 @@
 
 	function startSimulation() {
 		const args = { 'start': start, 'frequency': frequency, 'stepSize': stepSize };
-		console.log(window.location.href);
-		socket = io.connect('http://localhost:8000');
+		socket = io.connect(window.location.href);
 		socket.on('connect', () => {
 			console.log('connected!');
 			socket.emit('start', args)
