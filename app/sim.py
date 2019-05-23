@@ -14,29 +14,29 @@ from flask import (
 bp = Blueprint('sim', __name__)
 
 def setmodeldrag(nid, dx, dy):
-	for node in current_app.model.network.nodes:
+	for node in current_app.config['model'].network.nodes:
 		if node.id == nid:
 			node.unlock()
 			node.centroid = sbnw.point(node.centroid.x + dx, node.centroid.y + dy)
 		node.lock()
-	current_app.model.network.recenterjunct()
+	current_app.config['model'].network.recenterjunct()
 
 def setmodel(width, height, gravity=0, stiffness=20):
-	current_app.model = sbnw.loadsbml(current_app.sbml)
-	# current_app.zz = SBMLlayout(current_app.sbml)
+	current_app.config['model'] = sbnw.loadsbml(current_app.config['sbml'])
+	# current_app.zz = SBMLlayout(current_app.config['sbml'])
 	# current_app.zz.setLayoutAlgorithmOptions(grav=gravity, k=stiffness, prerandom=1)
 	# current_app.zz.regenerateLayoutAndNetwork()
-	if not current_app.model.network.haslayout():
-		current_app.model.network.randomize(5, 10, width - 5, height - 10)
-		current_app.model.network.autolayout(k=stiffness, grav=gravity)
-	current_app.model.network.fitwindow(5, 10, width - 5, height - 10)
+	if not current_app.config['model'].network.haslayout():
+		current_app.config['model'].network.randomize(5, 10, width - 5, height - 10)
+		current_app.config['model'].network.autolayout(k=stiffness, grav=gravity)
+	current_app.config['model'].network.fitwindow(5, 10, width - 5, height - 10)
 
 def getLayout():
 	layout = {
 		'nodes': list(),
 		'edges': None,
 		# 'sbml': current_app.zz.getSBMLString(),
-		'sbml': current_app.model.getsbml(),
+		'sbml': current_app.config['model'].getsbml(),
 	}
 
 	# for nid in current_app.zz.getNodeIds():
@@ -69,11 +69,11 @@ def getLayout():
 	# 	})
 	# layout['edges'] = edges
 
-	nodes = current_app.model.network.nodes
-	concentrations = current_app.r.model.getFloatingSpeciesConcentrations()
-	rids = current_app.r.model.getReactionIds()
-	rxns = current_app.model.network.rxns
-	rxnrates = current_app.r.model.getReactionRates()
+	nodes = current_app.config['model'].network.nodes
+	concentrations = current_app.config['r'].model.getFloatingSpeciesConcentrations()
+	rids = current_app.config['r'].model.getReactionIds()
+	rxns = current_app.config['model'].network.rxns
+	rxnrates = current_app.config['r'].model.getReactionRates()
 
 	for node in nodes:
 		layout['nodes'].append({
@@ -81,7 +81,7 @@ def getLayout():
 			'height': node.height,
 			'width': node.width,
 			'centroid': tuple(node.centroid),
-			'value': current_app.r.getValue('[{}]'.format(node.id)),
+			'value': current_app.config['r'].getValue('[{}]'.format(node.id)),
 		})
 
 	edges = list()
@@ -120,8 +120,8 @@ def run():
 	end = float(request.form['end'])
 	steps = int(request.form['steps'])
 
-	current_app.r.reset()
-	ndresult = current_app.r.simulate(start, end, points=steps)
+	current_app.config['r'].reset()
+	ndresult = current_app.config['r'].simulate(start, end, points=steps)
 	resultdata = ndresult.transpose().tolist()
 	data = dict()
 	for i, name in enumerate(ndresult.colnames):
@@ -129,18 +129,18 @@ def run():
 
 	return jsonify({
 		'data': data,
-		'params': current_app.r.model.getGlobalParameterIds(),
-		'bounds': current_app.r.model.getBoundarySpeciesIds(),
-		'comparts': current_app.r.model.getCompartmentIds(),
-		'moieties': current_app.r.model.getConservedMoietyIds(),
+		'params': current_app.config['r'].model.getGlobalParameterIds(),
+		'bounds': current_app.config['r'].model.getBoundarySpeciesIds(),
+		'comparts': current_app.config['r'].model.getCompartmentIds(),
+		'moieties': current_app.config['r'].model.getConservedMoietyIds(),
 	})
 
 @bp.route('/upload', methods=['POST'])
 def upload():
 	sbmlfile = request.files['sbml']
-	current_app.sbml = sbmlfile.read().decode('UTF-8')
-	current_app.r = rr.RoadRunner(current_app.sbml)
-	current_app.r.timeCourseSelections += current_app.r.getIds(rr.SelectionRecord.REACTION_RATE)
+	current_app.config['sbml'] = sbmlfile.read().decode('UTF-8')
+	current_app.config['r'] = rr.RoadRunner(current_app.config['sbml'])
+	current_app.config['r'].timeCourseSelections += current_app.config['r'].getIds(rr.SelectionRecord.REACTION_RATE)
 	
 	height = int(request.form['height'])
 	width = int(request.form['width'])
@@ -164,9 +164,9 @@ def drag():
 
 @bp.route('/get_param', methods=['POST'])
 def getparam():
-	return jsonify(current_app.r[request.form['param']])
+	return jsonify(current_app.config['r'][request.form['param']])
 
 @bp.route('/set_param', methods=['POST'])
 def setparam():
-	current_app.r[request.form['param']] = float(request.form['value'])
+	current_app.config['r'][request.form['param']] = float(request.form['value'])
 	return '200'

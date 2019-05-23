@@ -27,8 +27,8 @@ def create_app(test_config=None):
 	app.add_url_rule('/upload', endpoint='index')
 	app.add_url_rule('/redraw', endpoint='index')
 
-	app.sbml = None
-	app.r = None
+	app.config['sbml'] = None
+	app.config['r'] = None
 	
 	return app
 
@@ -39,15 +39,14 @@ running = threading.Event()
 running.set()
 done = threading.Event()
 def worker(simTime, frequency, timestep):
-	logger = logging.getLogger(__name__)
 	with app.app_context():
 		realTime = time.time()
 		while not done.is_set():
 			if (running.is_set()):
 				if time.time() - realTime >= frequency:
-					simTime = app.r.oneStep(simTime, timestep)
+					simTime = app.config['r'].oneStep(simTime, timestep)
 					realTime = time.time()
-					response = { name: amt for name, amt in zip(app.r.timeCourseSelections, app.r.getSelectedValues()) }
+					response = { name: amt for name, amt in zip(app.config['r'].timeCourseSelections, app.config['r'].getSelectedValues()) }
 					print(response)
 					socketio.emit('response', response)
 		done.clear()
@@ -71,13 +70,7 @@ def start(json):
 	frequency = int(json['frequency'])
 	timestep = int(json['stepSize'])
 
-	gunicorn_logger = logging.getLogger('gunicorn.error')
-	app.logger.handlers = gunicorn_logger.handlers
-	app.logger.setLevel(gunicorn_logger.level)
-
-	print('hi')
-
-	app.r.reset()
+	app.config['r'].reset()
 	threading.Thread(target=worker, args=(simTime, frequency, timestep)).start()
 
 if __name__ == '__main__':
