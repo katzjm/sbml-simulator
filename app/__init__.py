@@ -4,6 +4,7 @@ from flask_socketio import SocketIO, emit
 from . import sim
 import time
 import threading
+import logging
 
 def create_app(test_config=None):
 	app = Flask(__name__, instance_relative_config=True)
@@ -38,6 +39,7 @@ running = threading.Event()
 running.set()
 done = threading.Event()
 def worker(simTime, frequency, timestep):
+	logger = logging.getLogger(__name__)
 	with app.app_context():
 		realTime = time.time()
 		while not done.is_set():
@@ -69,6 +71,11 @@ def start(json):
 	frequency = int(json['frequency'])
 	timestep = int(json['stepSize'])
 
+	gunicorn_logger = logging.getLogger('gunicorn.error')
+	app.logger.handlers = gunicorn_logger.handlers
+	app.logger.setLevel(gunicorn_logger.level)
+
+	print('hi')
 
 	app.r.reset()
 	threading.Thread(target=worker, args=(simTime, frequency, timestep)).start()
