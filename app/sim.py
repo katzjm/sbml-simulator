@@ -14,7 +14,7 @@ from flask import (
 bp = Blueprint('sim', __name__)
 
 def setmodeldrag(nid, dx, dy):
-	print(current_app.config['SECRET_KEY'])
+	print("jj", current_app.config['SECRET_KEY'])
 	for node in current_app.config['model'].network.nodes:
 		if node.id == nid:
 			node.unlock()
