@@ -10,7 +10,7 @@ import random
 def create_app(test_config=None):
 	app = Flask(__name__, instance_relative_config=True)
 	app.config.from_mapping(
-		SECRET_KEY='dev' + random.randint(0, 1e9)
+		SECRET_KEY='dev{}'.format(random.randint(0, 1e9))
 	)
 
 	if test_config:
