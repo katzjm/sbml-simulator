@@ -22,7 +22,7 @@
 		}
 
 		#sidebar {
-			width: 49px;
+			width: 50px;
 			height: 95vh;
 			display: flex;
 			flex-flow: column;
@@ -41,11 +41,10 @@
 		main {
 			display: flex;
 			flex-flow: row wrap; 
-			width: 97vw;
+			width: calc(100vw - 50px);
 			height: 95vh;
 			position: relative;
 		}
-
 
 		header form {
 			width: 50%;
@@ -54,7 +53,7 @@
 		}
 
 		input[type=radio]:checked + button {
-			background-color: purple;
+			background-color: grey;
 		}
 
 		.min-input {
@@ -137,10 +136,10 @@
 		}
 
 		#upload-button {
-			background-color: purple;
 			height: 100%;
 			width: 100%;
 			font-size: 30px;
+			border-color: black;
 		}
 
 		#file-select {
@@ -149,7 +148,7 @@
 			left: 0px;
 			font-size: 100px;
 			opacity: 0;
-			cursor: pointer;
+			cursor: pointer;	
 		}
 
 		.sim-num-wrapper {
@@ -395,12 +394,12 @@
 		<div id="right-header">
 			<div id="sim-mode">
 				<div class="sim-radio-wrapper">
+					<input type="radio" name="line" id="offline" value="offline" title="Offline Mode" checked />
 					<button id="offline-button">Offline</button>
-					<input type="radio" name="menu" id="offline" value="offline" checked />
 				</div>
 				<div class="sim-radio-wrapper">
+					<input type="radio" name="line" id="online" value="online" title="Online Mode" />
 					<button id="online-button">Online</button>
-					<input type="radio" name="menu" id="online" value="online" />
 				</div>
 			</div>
 			<form id="offline-form" class="sim-form" method="post">
@@ -416,7 +415,7 @@
 					<label for="step-offline">Num Steps</label>
 					<input type="number" id="step-offline" min="2" value="101" />
 				</div>
-				<button type="submit" id="run-button"><i class="fas fa-play"></i></button>
+				<button type="submit" id="run-button" title="Run Simulation"><i class="fas fa-play"></i></button>
 			</form>
 			<form id="online-form" class="sim-form" method="post" style="display: none;">
 				<div class="sim-num-wrapper">					
@@ -425,13 +424,13 @@
 				</div>
 				<div class="sim-num-wrapper">					
 					<label for="frequency-online">Frequency</label>
-					<input type="number" id="frequency-online" min="0" value="1" />
+					<input type="number" id="frequency-online" min="0" value="1" step="0.001" />
 				</div>
 				<div class="sim-num-wrapper">
 					<label for="step-online">Step Size</label>
 					<input type="number" id="step-online" min="2" value="2" />
 				</div>
-				<button type="submit" id="start-button"><i class="fas fa-play"></i></button>
+				<button type="submit" id="start-button" title="Start Simulation"><i class="fas fa-play"></i></button>
 			</form>
 			<form id="start-menu" style="display: none;">
 				<input type="radio" name="menu" id="from-0" value="from-0" checked />
@@ -444,42 +443,38 @@
 	</header>
 	<div id='sidebar'>
 		<div class="sidebar-wrapper">
-			<input type="radio" name="menu" id="select" value="select" checked />
+			<input type="radio" name="menu" id="syringe" value="syringe" title="Model Editor Mode" checked />
 			<button id="select-button"><i class="fas fa-syringe"></i></button>
 		</div>
 		<div class="sidebar-wrapper">
-			<input type="radio" name="menu" id="plot" value="plot" />
-			<button><i class="fas fa-chart-line"></i></button>
-		</div>
-		<div class="sidebar-wrapper">
-			<input type="radio" name="menu" id="data" value="data" />
+			<input type="radio" name="menu" id="data" value="data" title="Display Editor Mode" />
 			<button><i class="fas fa-palette"></i></button>
 		</div>
 		<div class="sidebar-wrapper">
-			<a href="" download="sbml.xml" id="sbml-download">
-				<button><i class="fas fa-file-download"></i></button>
-			</a>
-		</div>
-		<div class="sidebar-wrapper">
-			<input class="sidebar-color" value="ab2567" id="hi-color" />
+			<input class="sidebar-color" id="hi-color" />
 			<canvas id="gradient"></canvas>
-			<input class="sidebar-color" value="ab2567" id="lo-color" />
+			<input class="sidebar-color" id="lo-color" />
 		</div>
 		<div class="sidebar-wrapper">
 			<button id="select-all">Select All</button>
 			<select id="select-list" style="height: 15vh;" multiple></select>
 		</div>
 		<div class="sidebar-wrapper">
-			<img src="{{ url_for('static', filename='images/spring.png') }}">
+			<img src="{{ url_for('static', filename='images/spring.png') }}" title="Layout Stiffness" >
 			<div class="sidebar-slider">
-				<input type="range" name="stiffness" id="stiffness" min="0" value="50" />
+				<input type="range" name="stiffness" id="stiffness" min="1" max="50" value="20" />
 			</div>
 		</div>
 		<div class="sidebar-wrapper">
-			<img src="{{ url_for('static', filename='images/gravity.png') }}">
+			<img src="{{ url_for('static', filename='images/gravity.png') }}" title="Layout Gravity">
 			<div class="sidebar-slider">
-				<input type="range" name="gravity" id="gravity" min="0" value="0" step="0.1" />
+				<input type="range" name="gravity" id="gravity" min="0" value="0" max="10" step="0.1" />
 			</div>
+		</div>
+		<div class="sidebar-wrapper">
+			<a href="" download="sbml.xml" id="sbml-download">
+				<button><i class="fas fa-file-download"></i></button>
+			</a>
 		</div>
 	</div>
 	<main>

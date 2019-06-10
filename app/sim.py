@@ -83,6 +83,7 @@ def getLayout():
 			'width': node.width,
 			'centroid': tuple(node.centroid),
 			'value': current_app.config['r'].getValue('[{}]'.format(node.id)),
+			'boundary': node.id in current_app.config['r'].model.getBoundarySpeciesIds(),
 		})
 
 	edges = list()
@@ -145,7 +146,9 @@ def upload():
 	
 	height = int(request.form['height'])
 	width = int(request.form['width'])
-	setmodel(width, height)
+	gravity = float(request.form['gravity'])
+	stiffness = int(request.form['stiffness'])
+	setmodel(width, height, gravity=gravity, stiffness=stiffness)
 	return jsonify({ 'layout': getLayout() })
 
 @bp.route('/redraw', methods=['POST'])

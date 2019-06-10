@@ -121,11 +121,12 @@
 			this.width = nodeJSON['width'];
 			this.height = nodeJSON['height'];
 			this._value = nodeJSON['value'];
+			this.boundary = nodeJSON['boundary'];
 
 			const orderOfMagnitude = Math.pow(10, Math.floor(Math.log(this._value) / Math.LN10 + Number.EPSILON))
 			this.min = orderOfMagnitude;
 			this.max = orderOfMagnitude * 10;
-			this.fillColor = gradCanvas.getColorAtFraction(this._value / this.max);
+			this.fillColor = this.boundary ? 'white' : gradCanvas.getColorAtFraction(this._value / this.max);
 		}
 
 		draw(ctx) {
@@ -287,7 +288,7 @@
 				type: 'line',
 				options: {
 					repsponsive: true,
-					maintainAspectRation: false,
+					maintainAspectRatio: false,
 					title: {
 						display: true,
 						text: 'Example Chart',
@@ -358,8 +359,7 @@
 		plotDataset(label) {
 			if (!this.chart.data.datasets.some(config => config.label == label)) {
 				this.chart.data.datasets.push(this.getDatasetConfig(label, simData[label]));
-				this.chart.update();
-				this.show();		
+				this.chart.update();		
 			}
 		}
 
@@ -371,32 +371,21 @@
 				this.chart.data.datasets.splice(index, 1);
 				this.chart.update();
 			}
-			if (!this.chart.data.datasets.length) {
-				this.hide();
-			}
 		}
 
 		hideAllDatasets() {
 			this.chart.data.datasets = [];
 			this.chart.update();
-			this.hide();
 		}
 
 		plotAllDatasets() {
 			this.chart.data.datasets = [];
 			for (let label in simData) {
-				this.chart.data.datasets.push(this.getDatasetConfig(label, simData[label]));
+				if (label !== 'time') {
+					this.chart.data.datasets.push(this.getDatasetConfig(label, simData[label]));
+				}
 			}
 			this.chart.update();
-			this.show();
-		}
-
-		hide() {
-			this.canvas.style.display = 'none';
-		}
-
-		show() {
-			this.canvas.style.display = 'block';
 		}
 
 		getDatasetConfig(label, data) {
@@ -482,7 +471,7 @@
 		}
 	}
 
-	class GraphCanvas extends Canvas {
+	class LayoutCanvas extends Canvas {
 		constructor(canvas) {
 			super(canvas);
 
@@ -583,12 +572,7 @@
 		}
 
 		clickShape(shape, e) {
-			if (document.getElementById('select').checked) {
-				if (!e.shiftKey) {
-					this.clearSelection();
-				}																																	
-				shape.isSelected ? this.deselectShape(shape) : this.selectShape(shape);
-			} else if (document.getElementById('plot').checked) {
+			if (document.getElementById('syringe').checked) {
 				if (!e.shiftKey) {
 					chartCanvas.hideAllDatasets();
 				}
@@ -792,6 +776,7 @@
 
 	function handleRunOutput(json) {
 		chartCanvas.loadData(json['data']);
+		console.log(json);
 
 		const paramList = document.getElementById('parameter-list');
 		for (let i = paramList.options.length - 1; i >= 0; i--) {
@@ -934,7 +919,6 @@
 
 	function startOnlineSim(e) {
 		e.preventDefault();
-		console.log("another");
 		start = document.getElementById('start-online').value;
 		frequency = document.getElementById('frequency-online').value;
 		stepSize = document.getElementById('step-online').value;
@@ -948,9 +932,7 @@
 	}
 
 	function handleSelectAllButton() {
-		if (document.getElementById('select').checked) {
-			graphCanvas.selectAllShapes();
-		} else if (document.getElementById('plot').checked) {
+		if (document.getElementById('syringe').checked) {
 			chartCanvas.plotAllDatasets();
 		}
 	}
@@ -973,7 +955,7 @@
 		const canvasContainer = document.getElementById('canvas-container');
 		const canvas = document.getElementById('canvas');
 		const boundingRect = canvas.getBoundingClientRect();
-		graphCanvas = new GraphCanvas(canvas);
+		graphCanvas = new LayoutCanvas(canvas);
 		graphCanvas.canvasWidth = boundingRect.width;
 		graphCanvas.canvasHeight = boundingRect.height;
 		graphCanvas.cssWidth = boundingRect.width + 'px';
@@ -982,7 +964,6 @@
 		canvasContainer.style.width = boundingRect.width + 'px';
 
 		chartCanvas = new ChartCanvas(document.getElementById('chart'));
-		chartCanvas.hide();
 
 		document.getElementById('upload-wrapper').addEventListener("change", uploadSBML);
 		document.getElementById('offline-form').addEventListener('submit', startOfflineSim);
@@ -990,6 +971,8 @@
 		document.getElementById('redraw-form').addEventListener("submit", handleRedrawButton);
 		document.getElementById('select-all').addEventListener('click', handleSelectAllButton);
 		document.getElementById('sim-mode').addEventListener('change', changeSimMode);
+		document.getElementById('gravity').addEventListener('change', (e) => uploadSBML(e) );
+		document.getElementById('stiffness').addEventListener('change', (e) => uploadSBML(e) );
 
 		function rowResize(e) {
 			e.preventDefault();
