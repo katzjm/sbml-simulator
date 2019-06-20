@@ -45,7 +45,6 @@ def worker(simTime):
 		while not done.is_set():
 			gevent.sleep(app.config['frequency'])
 			if (running.is_set()):
-				print('worker', app.config['timestep'])
 				simTime = app.config['r'].oneStep(simTime, app.config['timestep'])
 				realTime = time.time()
 				response = { name: amt for name, amt 

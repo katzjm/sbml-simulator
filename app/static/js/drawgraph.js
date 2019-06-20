@@ -11,7 +11,6 @@
 	let steps;
 	let frequency;
 	let socket;
-	let started = false;
 	let simData = {};
 
 	function checkStatus(response) {
@@ -52,12 +51,20 @@
 		postToServer('run', resultFunction, args);
 	}
 
-	function reset() {
-		started = false;
-		simData = {};
+	function resetModel() {
 		postToServer('reset', () => {}, {});
-		socket.emit('end');
 		graphCanvas.clear();
+		resetData();
+
+		const startButton = document.getElementById('start-button');
+		startButton.firstChild.className = 'fas fa-play';
+		startButton.style.display = 'block';
+		document.getElementById('pause-menu').style.display = 'none';
+	}
+
+	function resetData() {
+		simData = {};
+		socket.emit('end');
 		chartCanvas.hideAllDatasets();
 	}
 
@@ -122,11 +129,11 @@
 			const orderOfMagnitude = Math.pow(10, Math.floor(Math.log(this._value) / Math.LN10 + Number.EPSILON))
 			this.min = orderOfMagnitude;
 			this.max = orderOfMagnitude * 10;
-			this.fillColor = this.boundary ? 'white' : gradCanvas.getColorAtFraction(this._value / this.max);
+			this.fillColor = gradCanvas.getColorAtFraction(this._value / this.max);
 		}
 
 		draw(ctx) {
-			ctx.fillStyle = this.fillColor;
+			ctx.fillStyle = this.boundary ? 'white' : this.fillColor;
 			ctx.strokeStyle = this.isSelected ? this.selectColor : this.edgeColor;
 			ctx.fillRect(this.x, this.y, this.width, this.height);
 			ctx.strokeRect(this.x, this.y, this.width, this.height);
@@ -598,13 +605,7 @@
 
 		setTimepoint(index) {
 			this.valid = false;
-			this.nodes.forEach( (node) => {
-				if (simData.hasOwnProperty('[' + node.id + ']')) {
-					node.value = simData['[' + node.id + ']'][index];
-				} else {
-					node.fillColor = 'white';
-				}
-			});
+			this.nodes.forEach( (node) => node.value = simData['[' + node.id + ']'][index] );
 		}
 
 		get hyperedges() {
@@ -789,10 +790,12 @@
 			this.slider.addEventListener('input', (e) => {
 		 		const args = { 'param': this.param, 'value': this.slider.value };
 				postToServer('set_param', () => { return null }, args);
-				runSimulation( (json) => {
-					chartCanvas.loadData(json['data']);
-					chartCanvas.replot();
-				});
+				if (document.getElementById('offline').checked) {
+					runSimulation( (json) => {
+						chartCanvas.loadData(json['data']);
+						chartCanvas.replot();
+					});	
+				}
 				this.valueOutput.innerHTML = this.slider.value;
 			});
 			this.maxInput.value = 2 * this.value;
@@ -901,7 +904,7 @@
 
 		chartCanvas = new ChartCanvas(document.getElementById('chart'));
 
-		document.getElementById('upload-wrapper').addEventListener("change", (e) => { reset(); uploadSBML(e); });
+		document.getElementById('upload-wrapper').addEventListener("change", (e) => { resetModel(); uploadSBML(e); });
 		document.getElementById('offline-form').addEventListener('submit', startOfflineSim);
 		document.getElementById('online-form').addEventListener('submit', (e) => e.preventDefault() );
 		document.getElementById('redraw-form').addEventListener("submit", handleRedrawButton);
@@ -928,10 +931,10 @@
 		// 	document.removeEventListener('mousemove', rowResize);
 		// });
 
-		const lineThicknessEditor = document.getElementById('line-thickness');
-		lineThicknessEditor.addEventListener('input', (e) => {
-			graphCanvas.lineWidth = lineThicknessEditor.value;
-		});
+		// const lineThicknessEditor = document.getElementById('line-thickness');
+		// lineThicknessEditor.addEventListener('input', (e) => {
+		// 	graphCanvas.lineWidth = lineThicknessEditor.value;
+		// });
 
 		const canvasTime = document.getElementById('canvas-time');
 		canvasTime.addEventListener('input', (e) => graphCanvas.setTimepoint(canvasTime.value) );
@@ -952,24 +955,23 @@
 		    }
 		};
 
-		const rePickr = Pickr.create(Object.assign({ el: '#reaction-edge' }, pickrConfig));
-		const nfPickr = Pickr.create(Object.assign({ el: '#node-fill' }, pickrConfig));
-		const nePickr = Pickr.create(Object.assign({ el: '#node-edge' }, pickrConfig));
+		// const rePickr = Pickr.create(Object.assign({ el: '#reaction-edge' }, pickrConfig));
+		// const nfPickr = Pickr.create(Object.assign({ el: '#node-fill' }, pickrConfig));
+		// const nePickr = Pickr.create(Object.assign({ el: '#node-edge' }, pickrConfig));
+		// rePickr.on('change', (hsva, _) => {
+		// 	graphCanvas.hyperedgeEdgeColor = hsva.toRGBA().toString();
+		// });
+
+		// nfPickr.on('change', (hsva, _) => {
+		// 	graphCanvas.nodeFillColor = hsva.toRGBA().toString();
+		// });
+
+		// nePickr.on('change', (hsva, _) => {
+		// 	graphCanvas.nodeEdgeColor = hsva.toRGBA().toString();
+		// });
+
 		const hiPickr = Pickr.create(Object.assign({ el: '#hi-color' }, pickrConfig));
 		const loPickr = Pickr.create(Object.assign({ el: '#lo-color' }, pickrConfig));
-
-		rePickr.on('change', (hsva, _) => {
-			graphCanvas.hyperedgeEdgeColor = hsva.toRGBA().toString();
-		});
-
-		nfPickr.on('change', (hsva, _) => {
-			graphCanvas.nodeFillColor = hsva.toRGBA().toString();
-		});
-
-		nePickr.on('change', (hsva, _) => {
-			graphCanvas.nodeEdgeColor = hsva.toRGBA().toString();
-		});
-
 		gradCanvas = new GradientCanvas(document.getElementById('gradient'));
 		hiPickr.on('change', (hsva, _) => {
 			gradCanvas.hiColor = hsva.toRGBA().toString();
@@ -989,19 +991,32 @@
 		});
 
 		const startButton = document.getElementById('start-button');
+		const pauseMenu = document.getElementById('pause-menu');
 		startButton.addEventListener('click', (e) => {
 			if (startButton.firstChild.className === 'fas fa-play') {
-				if (!started) {
-					startOnlineSim(e);
-					started = true;
-				} else {
-					socket.emit('pause');
-				}
+				resetData();
+				startOnlineSim(e);
 				startButton.firstChild.className = 'fas fa-pause';
 			} else {
 				socket.emit('pause');
-				startButton.firstChild.className = 'fas fa-play';
+				startButton.style.display = 'none';
+				pauseMenu.style.display = 'block';
 			}
+		});
+
+		const continueButton = document.getElementById('continue-button');
+		const stopButton = document.getElementById('stop-button');
+		continueButton.addEventListener('click', (e) => {
+			socket.emit('pause');
+			startButton.style.display = 'block';
+			pauseMenu.style.display = 'none';
+		});
+
+		stopButton.addEventListener('click', (e) => {
+			socket.emit('end');
+			startButton.style.display = 'block';
+			pauseMenu.style.display = 'none';
+			startButton.firstChild.className = 'fas fa-play';
 		});
 
 		socket = io.connect(window.location.href);
