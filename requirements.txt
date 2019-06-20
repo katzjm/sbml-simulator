@@ -26,7 +26,6 @@ jupyter-client==5.2.4
 jupyter-core==4.4.0
 kiwisolver==1.0.1
 libroadrunner==1.5.3
--e git+https://github.com/sys-bio/libsbml-draw.git@2d30b98d44ecd902868655f4fa2ac85958e974e2#egg=libsbml_draw
 MarkupSafe==1.1.0
 matplotlib==3.0.2
 more-itertools==5.0.0
