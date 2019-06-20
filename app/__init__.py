@@ -3,8 +3,7 @@ from flask import Flask, current_app
 from flask_socketio import SocketIO, emit
 from . import sim
 import time
-import threading
-import logging
+import gevent
 import random
 
 def create_app(test_config=None):
@@ -30,35 +29,35 @@ def create_app(test_config=None):
 
 	app.config['sbml'] = None
 	app.config['r'] = None
-	
+	app.config['frequency'] = 1
+	app.config['timestep'] = 2
+
 	return app
 
 app = create_app()
 socketio = SocketIO(app)
 
-running = threading.Event()
+running = gevent.event.Event()
 running.set()
-done = threading.Event()
-def worker(simTime, frequency, timestep):
+done = gevent.event.Event()
+def worker(simTime):
 	with app.app_context():
-		realTime = time.time()
 		while not done.is_set():
+			gevent.sleep(app.config['frequency'])
 			if (running.is_set()):
-				if time.time() - realTime >= frequency:
-					simTime = app.config['r'].oneStep(simTime, timestep)
-					realTime = time.time()
-					response = { name: amt for name, amt in zip(app.config['r'].timeCourseSelections, app.config['r'].getSelectedValues()) }
-					print(response)
-					socketio.emit('response', response)
-		done.clear()
+				print('worker', app.config['timestep'])
+				simTime = app.config['r'].oneStep(simTime, app.config['timestep'])
+				realTime = time.time()
+				response = { name: amt for name, amt 
+					in zip(app.config['r'].timeCourseSelections, app.config['r'].getSelectedValues()) }
+				socketio.emit('response', response)
 
 @socketio.on('pause')
 def pause():
-	running.clear()
-
-@socketio.on('continue')
-def unpause():
-	running.set()
+	if (running.is_set()):
+		running.clear()
+	else:
+		running.set()
 
 @socketio.on('end')
 def end():
@@ -68,11 +67,10 @@ def end():
 @socketio.on('start')
 def start(json):
 	simTime = int(json['start'])
-	frequency = int(json['frequency'])
-	timestep = int(json['stepSize'])
+	done.clear()
 
 	app.config['r'].reset()
-	threading.Thread(target=worker, args=(simTime, frequency, timestep)).start()
+	gevent.spawn(worker, simTime)
 
 if __name__ == '__main__':
 	socketio.run(app, debug=True, port=80, host='0.0.0.0')

@@ -38,6 +38,11 @@
 			text-align: center;
 		}
 
+		h1 {
+			font-family: sans-serif;
+			font-size: 2vw; 
+		}
+
 		main {
 			display: flex;
 			flex-flow: row wrap; 
@@ -77,24 +82,22 @@
 			border-color: rgba(0, 0, 0, 0);
 		}
 
-		#tip {
-			width: 200px;
-			height: 50px;
-			position: absolute;
-			display: none;
-			z-index: 50;
-		}
-
 		.column {
 			height: 49.5%;
 			bottom: 0px;
 		}
 
 		.column-seperator {
-			width: 1%;
-			cursor: col-resize;
-			background-color: gray;
+			width: 60px;
+			background-color: lightgray;
 			border: 1px solid black;
+		}
+
+		.column-seperator > button {
+			width: 100%;
+			height: 10%;
+			font-size: 15px;
+			text-align: center;
 		}
 
 		#sim-mode {
@@ -116,7 +119,7 @@
 		#sim-mode button {
 			width: 100%;
 			height: 100%;
-			font-size: 30px;
+			font-size: 2vw;
 		}
 
 		#redraw-form {
@@ -124,8 +127,10 @@
 		}
 
 		#redraw-button {
-			font-size: 30px;
+			font-size: 2vw;
+			text-align: center;
 			width: 100%;
+			overflow: hidden;
 		}
 
 		#upload-wrapper {
@@ -138,7 +143,7 @@
 		#upload-button {
 			height: 100%;
 			width: 100%;
-			font-size: 30px;
+			font-size: 2vw;
 			border-color: black;
 		}
 
@@ -176,7 +181,6 @@
 		}
 
 		#canvas {
-			border: 1px solid blue;
 			width: 100%;
 			height: 100%;
 			z-index: 10;
@@ -184,16 +188,22 @@
 
 		#canvas-container {
 			height: 49.5%;
-			width: 100%;
-			flex-shrink: 0;
-			position: relative;
+			width: 90%;
+			border: 1px solid blue;
+			overflow: hidden;
+			display: flex;
+			justify-content: center;
+		}
+
+		#selection-container {
+			height: 49.5%;
+			width: 10%;
 		}
 
 		#row-seperator {
 			height: 1%;
 			width: 100%;
 			background-color: gray;
-			cursor: row-resize;
 			border: 1px solid black;
 			z-index: 11;
 		}
@@ -209,16 +219,16 @@
 		}
 
 		#parameter-list {
-			height: 80%;
-			width: 20%;
+			height: 90%;
+			width: 90%;
 			font-size: 20px;
 			border-radius: 10px;
 			border: 5px solid darkgray;
 		}
 
 		#sliders {
-			height: 80%;
-			width: 60%;
+			height: 90%;
+			width: 90%;
 			border: 5px solid darkgray;
 			list-style: none;
 			display: flex;
@@ -243,7 +253,7 @@
 		}
 
 		#chart-container {
-			width: 49.5%;
+			width: calc(47.5% - 60px);
 		}
 
 		#chart {
@@ -260,7 +270,9 @@
 		}
 
 		.sidebar-wrapper i {
-			font-size: 2.5vw;
+			font-size: 43px;
+			height: 43px;
+			text-align: center;
 		}
 
 		.sidebar-wrapper button {
@@ -290,13 +302,6 @@
 			margin: 0;
 			transform-origin: center;
 			transform: rotate(-90deg);
-		}
-
-		#canvas-time {
-			width: 95%;
-			position: absolute;
-			bottom: 3px;
-			left: 2.5%;
 		}
 
 		#sidebar .pickr button {
@@ -359,16 +364,55 @@
 			display: flex;
 			flex-direction: row;
 			justify-content: flex-end;
-			width: 50vw;
+			width: 60vw;
 		}
 
 		header button[type=submit] {
 			width: 20%;
 		}
 
-		.fa-play {
+		.fa-play, .fa-pause {
 			font-size: 300%;
 		}
+
+		#pause-button {
+			display: none;
+		}
+
+		#yaxis-controls {
+			display: flex;
+			justify-content: center;
+			width: 100%;
+			height: 20%;
+			flex-flow: column;
+			opacity: 0.2;
+		}
+
+		.seperator-wrapper {
+			position: relative;
+			width: 100%;
+			height: 10%;
+		}
+
+		.seperator-wrapper button {
+			width: 100%;
+			height: 100%;
+			font-size: 15px;
+			text-align: center;
+			padding: 0px;
+		}
+
+		.seperator-wrapper input[type=radio] {
+			opacity: 0;
+			overflow: hidden;
+			width: 100%;
+			height: 100%;
+			position: absolute;
+			top: 0px;
+			left: 0px;
+			cursor: pointer;
+		}
+
 	</style>
 	<script src="{{ url_for('static', filename='js/drawgraph.js') }}"></script>
 	<script src="{{ url_for('static', filename='js/lib/Chart.min.js') }}"></script>
@@ -384,8 +428,8 @@
 	<header>
 		<div id="left-header">
 			<div id="upload-wrapper">
-				<button id="upload-button">Upload Model</button>
 				<input type="file" id="file-select" name="sbml" />
+				<button id="upload-button">Upload Model</button>
 			</div>
 			<form id="redraw-form" action="redraw" method="post">
 				<button type="submit" id="redraw-button">Redraw</button>
@@ -424,40 +468,27 @@
 				</div>
 				<div class="sim-num-wrapper">					
 					<label for="frequency-online">Frequency</label>
-					<input type="number" id="frequency-online" min="0" value="1" step="0.001" />
+					<input type="range" id="frequency-online" min="0.1" value="1" max="5" step="0.1" />
 				</div>
 				<div class="sim-num-wrapper">
-					<label for="step-online">Step Size</label>
-					<input type="number" id="step-online" min="2" value="2" />
+					<label for="step-online">Time Step</label>
+					<input type="range" id="step-online" min="0.1" value="2" max="10" />
 				</div>
 				<button type="submit" id="start-button" title="Start Simulation"><i class="fas fa-play"></i></button>
-			</form>
-			<form id="start-menu" style="display: none;">
-				<input type="radio" name="menu" id="from-0" value="from-0" checked />
-				<label for="from-0">From 0</label>
-				<input type="radio" name="menu" id="window" value="window" />
-				<label for="window">Window</label>
-				<input type="number" id="window-steps">
 			</form>
 		</div>
 	</header>
 	<div id='sidebar'>
-		<div class="sidebar-wrapper">
-			<input type="radio" name="menu" id="syringe" value="syringe" title="Model Editor Mode" checked />
-			<button id="select-button"><i class="fas fa-syringe"></i></button>
-		</div>
-		<div class="sidebar-wrapper">
-			<input type="radio" name="menu" id="data" value="data" title="Display Editor Mode" />
-			<button><i class="fas fa-palette"></i></button>
-		</div>
 		<div class="sidebar-wrapper">
 			<input class="sidebar-color" id="hi-color" />
 			<canvas id="gradient"></canvas>
 			<input class="sidebar-color" id="lo-color" />
 		</div>
 		<div class="sidebar-wrapper">
-			<button id="select-all">Select All</button>
-			<select id="select-list" style="height: 15vh;" multiple></select>
+			<i class="fas fa-clock" title="Display Time"></i>
+			<div class="sidebar-slider">
+				<input type="range" name="time" id="canvas-time" />
+			</div>
 		</div>
 		<div class="sidebar-wrapper">
 			<img src="{{ url_for('static', filename='images/spring.png') }}" title="Layout Stiffness" >
@@ -502,17 +533,42 @@
 		</div>
 		<div id="canvas-container">
 			<canvas id="canvas"></canvas>
-			<input type="range" name="time" id="canvas-time" />
+		</div>
+		<div id="selection-container">
+			<select id="select-list" style="height: 90%; width: 100%; font-size: 20px" multiple></select>
+			<button id="select-all" style="height: 10%; width: 100%; font-size: 2vw;">Select All</button>
 		</div>
 		<div id='row-seperator'></div>
 		<div id="parameter-menu" class="column">
-			<div style="width: 200%;">
-				<h1>Parameters</h1>
-			</div>	
-			<select id="parameter-list" size="3"></select>
-			<ul id="sliders"></ul>
+			<div style="width: 30%; height: 90%; display: flex; flex-flow: column; align-items: center;">	
+				<h1 style="text-align: left;">Parameters</h1>
+				<select id="parameter-list" size="3"></select>
+			</div>
+			<div style="width: 70%; height: 90%; display: flex; justify-content: space-around; flex-flow: row wrap; ">
+				<h1 style="text-align: left;">Sliders</h1>
+				<button id="clear-sliders" style="font-size: 1.7vw">Clear</button>
+				<ul id="sliders"></ul>
+			</div>
 		</div>
-		<div class="column column-seperator"></div>
+		<div class="column column-seperator">
+			<button id="clear">Clear</button>
+			<button id="yaxis">Fix Y&#8209;Axis</button>
+			<div id="yaxis-controls">
+				<label for="yaxis-max">Max</label>
+				<input type="number" id="yaxis-max" value="1" disabled>
+				<label for="yaxis-min">Min</label>
+				<input type="number" id="yaxis-min" value="-1" disabled>	
+			</div>
+			<div class="seperator-wrapper">
+				<input type="radio" name="menu" id="from-0" value="from-0" checked />
+				<button>From&nbsp;0</button>		
+			</div>
+			<div class="seperator-wrapper">
+				<input type="radio" name="menu" id="window" value="window" />
+				<button>Window</button>
+			</div>
+			<input type="number" id="window-steps">
+		</div>
 		<div id="chart-container" class="column">
 			<canvas id="chart"></canvas>
 		</div>

@@ -14,7 +14,6 @@ from flask import (
 bp = Blueprint('sim', __name__)
 
 def setmodeldrag(nid, dx, dy):
-	print("jj", current_app.config['SECRET_KEY'])
 	for node in current_app.config['model'].network.nodes:
 		if node.id == nid:
 			node.unlock()
@@ -128,7 +127,6 @@ def run():
 	data = dict()
 	for i, name in enumerate(ndresult.colnames):
 		data[name] = resultdata[i]
-
 	return jsonify({
 		'data': data,
 		'params': current_app.config['r'].model.getGlobalParameterIds(),
@@ -143,13 +141,20 @@ def upload():
 	current_app.config['sbml'] = sbmlfile.read().decode('UTF-8')
 	current_app.config['r'] = rr.RoadRunner(current_app.config['sbml'])
 	current_app.config['r'].timeCourseSelections += current_app.config['r'].getIds(rr.SelectionRecord.REACTION_RATE)
+	current_app.config['r'].timeCourseSelections += current_app.config['r'].getIds(rr.SelectionRecord.BOUNDARY_CONCENTRATION)
 	
 	height = int(request.form['height'])
 	width = int(request.form['width'])
 	gravity = float(request.form['gravity'])
 	stiffness = int(request.form['stiffness'])
 	setmodel(width, height, gravity=gravity, stiffness=stiffness)
-	return jsonify({ 'layout': getLayout() })
+	return jsonify({
+		'layout': getLayout(),
+		'params': current_app.config['r'].model.getGlobalParameterIds(),
+		'bounds': current_app.config['r'].model.getBoundarySpeciesIds(),
+		'comparts': current_app.config['r'].model.getCompartmentIds(),
+		'moieties': current_app.config['r'].model.getConservedMoietyIds(),
+	})
 
 @bp.route('/redraw', methods=['POST'])
 def redraw():
@@ -173,4 +178,18 @@ def getparam():
 @bp.route('/set_param', methods=['POST'])
 def setparam():
 	current_app.config['r'][request.form['param']] = float(request.form['value'])
+	return '200'
+
+@bp.route('/set_sim_param', methods=['POST'])
+def setsimparam():
+	print('set', current_app.config['timestep'])
+	current_app.config[request.form['param']] = float(request.form['value'])
+	return '200'
+
+@bp.route('/reset', methods=['POST'])
+def reset():
+	current_app.config['sbml'] = None
+	current_app.config['r'] = None
+	current_app.config['frequency'] = 1
+	current_app.config['timestep'] = 2
 	return '200'
