@@ -129,11 +129,11 @@
 			const orderOfMagnitude = Math.pow(10, Math.floor(Math.log(this._value) / Math.LN10 + Number.EPSILON))
 			this.min = orderOfMagnitude;
 			this.max = orderOfMagnitude * 10;
-			this.fillColor = gradCanvas.getColorAtFraction(this._value / this.max);
+			this.fillColor = this.boundary ? 'white' : gradCanvas.getColorAtValue(this._value);
 		}
 
 		draw(ctx) {
-			ctx.fillStyle = this.boundary ? 'white' : this.fillColor;
+			ctx.fillStyle = this.fillColor;
 			ctx.strokeStyle = this.isSelected ? this.selectColor : this.edgeColor;
 			ctx.fillRect(this.x, this.y, this.width, this.height);
 			ctx.strokeRect(this.x, this.y, this.width, this.height);
@@ -166,7 +166,8 @@
 
 		set value(newValue) {
 			this._value = newValue;
-			this.fillColor = gradCanvas.getColorAtFraction(Math.min(1, Math.max(0, this._value / this.max)));
+			console.log(newValue, this._value);
+			this.fillColor = this.boundary ? 'white' : gradCanvas.getColorAtValue(this._value);
 		}
 	}
 
@@ -413,21 +414,31 @@
 	class GradientCanvas extends Canvas {
 		constructor(canvas) {
 			super(canvas);
-			this.hiColor = '#F93F3F';
-			this.loColor = '#01DFF7';
+			this.canvas.width = parseInt(window.getComputedStyle(this.canvas).width) * 2;
+			this.canvas.height = parseInt(window.getComputedStyle(this.canvas).height) * 2;
 			this.redraw();
 		}
 
 		redraw() {
+			const colors = ['red', 'orange', 'yellow', 'green', 'lightblue', 'gold', 'pink', 'violet'];
 			const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
-			gradient.addColorStop(0, this.hiColor);
-			gradient.addColorStop(1, this.loColor);
+			for (let i = 0; i < colors.length; i++) {
+				gradient.addColorStop(i / (colors.length - 1), colors[i]);
+			}
 			this.ctx.fillStyle = gradient;
 			this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+			this.ctx.fillStyle = 'black';
+			this.ctx.textAlign = 'center';
+			this.ctx.font = '20px sans-serif';
+			for (let i = -4; i <= 3; i++) {
+				this.ctx.fillText(Math.pow(10, -i), this.canvas.width / 2, (i + 4) / 8 * this.canvas.height);
+			}
 		}
 
-		getColorAtFraction(fraction) {
-			const color = this.ctx.getImageData(this.canvas.width / 2 , this.canvas.height * (1 - fraction), 1, 1).data;
+		getColorAtValue(value) {
+			console.log(value, 'getColorAtValue');
+			const color = this.ctx.getImageData(this.canvas.width / 7 , (-Math.log10(value) + 4) / 8 * this.canvas.height, 1, 1).data;
 			return 'rgba(' + color[0] + ',' + color[1] + ',' + color[2] + ',' + color[3] + ')';
 		}
 	}
@@ -605,6 +616,7 @@
 
 		setTimepoint(index) {
 			this.valid = false;
+			console.log(index, simData);
 			this.nodes.forEach( (node) => node.value = simData['[' + node.id + ']'][index] );
 		}
 
@@ -870,6 +882,10 @@
 
 	function startOnlineSim(e) {
 		e.preventDefault();
+		const canvasTime = document.getElementById('canvas-time');
+		canvasTime.min = 0;
+		canvasTime.max = 0;
+		canvasTime.value = 0;
 		start = document.getElementById('start-online').value;
 		startSimulation();
 	}
@@ -888,7 +904,7 @@
 		} else {
 			document.getElementById('offline-form').style.display = 'none';
 			document.getElementById('online-form').style.display = 'flex';
-			// document.getElementById('start-menu').style.display = 'block';
+			document.getElementById('start-menu').style.display = 'block';
 		}
 	}
 
@@ -912,76 +928,6 @@
 		document.getElementById('sim-mode').addEventListener('change', changeSimMode);
 		document.getElementById('gravity').addEventListener('change', uploadSBML);
 		document.getElementById('stiffness').addEventListener('change', uploadSBML);
-
-		// function rowResize(e) {
-		// 	e.preventDefault();
-		// 	graphCanvas.cssHeight = (parseInt(graphCanvas.cssHeight) + e.movementY) + 'px';
-		// 	graphCanvas.canvasHeight = parseInt(graphCanvas.canvasHeight) + e.movementY;
-		// 	canvasContainer.style.height = parseInt(canvasContainer.style.height) + e.movementY + 'px';
-		// 	for (const column of document.getElementsByClassName('column')) {
-		// 		column.style.height = (column.getBoundingClientRect().height - e.movementY) + 'px';
-		// 	};
-		// }
-
-		// document.getElementById('row-seperator').addEventListener('mousedown', (e) => {
-		// 	document.addEventListener('mousemove', rowResize);
-		// });
-
-		// document.addEventListener('mouseup', (e) => {
-		// 	document.removeEventListener('mousemove', rowResize);
-		// });
-
-		// const lineThicknessEditor = document.getElementById('line-thickness');
-		// lineThicknessEditor.addEventListener('input', (e) => {
-		// 	graphCanvas.lineWidth = lineThicknessEditor.value;
-		// });
-
-		const canvasTime = document.getElementById('canvas-time');
-		canvasTime.addEventListener('input', (e) => graphCanvas.setTimepoint(canvasTime.value) );
-
-		const pickrConfig = {
-		    components: {
-		        preview: true,
-		        opacity: true,
-		        hue: true,
-
-		        interaction: {
-		            hex: true,
-		            rgba: true,
-		            hsla: true,
-		            input: true,
-		            save: true
-		        }
-		    }
-		};
-
-		// const rePickr = Pickr.create(Object.assign({ el: '#reaction-edge' }, pickrConfig));
-		// const nfPickr = Pickr.create(Object.assign({ el: '#node-fill' }, pickrConfig));
-		// const nePickr = Pickr.create(Object.assign({ el: '#node-edge' }, pickrConfig));
-		// rePickr.on('change', (hsva, _) => {
-		// 	graphCanvas.hyperedgeEdgeColor = hsva.toRGBA().toString();
-		// });
-
-		// nfPickr.on('change', (hsva, _) => {
-		// 	graphCanvas.nodeFillColor = hsva.toRGBA().toString();
-		// });
-
-		// nePickr.on('change', (hsva, _) => {
-		// 	graphCanvas.nodeEdgeColor = hsva.toRGBA().toString();
-		// });
-
-		const hiPickr = Pickr.create(Object.assign({ el: '#hi-color' }, pickrConfig));
-		const loPickr = Pickr.create(Object.assign({ el: '#lo-color' }, pickrConfig));
-		gradCanvas = new GradientCanvas(document.getElementById('gradient'));
-		hiPickr.on('change', (hsva, _) => {
-			gradCanvas.hiColor = hsva.toRGBA().toString();
-			gradCanvas.redraw();
-		});
-
-		loPickr.on('change', (hsva, _) => {
-			gradCanvas.loColor = hsva.toRGBA().toString();
-			gradCanvas.redraw();
-		});
 
 		const sliders = document.getElementById('sliders');
 		document.getElementById('clear-sliders').addEventListener('click', (e) => {
@@ -1023,8 +969,18 @@
 		socket.on('connect', () => {
 			console.log('connected!');
 		});
+
+		const canvasTime = document.getElementById('canvas-time');
+		canvasTime.addEventListener('input', (e) => graphCanvas.setTimepoint(canvasTime.value) );
 		socket.on('response', (data) => {
 			chartCanvas.pushDataPoint(data);
+			if (canvasTime.max === canvasTime.value) {
+				canvasTime.max = '' + (parseInt(canvasTime.max) + 1);
+				canvasTime.dispatchEvent(new Event('input'));
+				canvasTime.value = '' + (parseInt(canvasTime.value) + 1);
+			} else {
+				canvasTime.max = '' + (parseInt(canvasTime.max) + 1);
+			}
 			chartCanvas.replot();
 		});
 		socket.on('error', (e) => {
@@ -1074,6 +1030,84 @@
 			const args = { 'param': 'timestep', 'value': timestep.value };
 			postToServer('set_sim_param', () => { return null }, args);
 		});
+
+		gradCanvas = new GradientCanvas(document.getElementById('gradient'));
+
+		const sidebarSliders = document.getElementsByClassName('sidebar-slider');
+		for (let slider of sidebarSliders) {
+			slider.previousElementSibling.addEventListener('click', (e) => {
+				for (let slider2 of sidebarSliders) {
+					slider2.style.height = '0px';
+				}
+				slider.style.height = '100px';	
+			});
+		}
+
+		// function rowResize(e) {
+		// 	e.preventDefault();
+		// 	graphCanvas.cssHeight = (parseInt(graphCanvas.cssHeight) + e.movementY) + 'px';
+		// 	graphCanvas.canvasHeight = parseInt(graphCanvas.canvasHeight) + e.movementY;
+		// 	canvasContainer.style.height = parseInt(canvasContainer.style.height) + e.movementY + 'px';
+		// 	for (const column of document.getElementsByClassName('column')) {
+		// 		column.style.height = (column.getBoundingClientRect().height - e.movementY) + 'px';
+		// 	};
+		// }
+
+		// document.getElementById('row-seperator').addEventListener('mousedown', (e) => {
+		// 	document.addEventListener('mousemove', rowResize);
+		// });
+
+		// document.addEventListener('mouseup', (e) => {
+		// 	document.removeEventListener('mousemove', rowResize);
+		// });
+
+		// const lineThicknessEditor = document.getElementById('line-thickness');
+		// lineThicknessEditor.addEventListener('input', (e) => {
+		// 	graphCanvas.lineWidth = lineThicknessEditor.value;
+		// });
+
+		// const pickrConfig = {
+		//     components: {
+		//         preview: true,
+		//         opacity: true,
+		//         hue: true,
+
+		//         interaction: {
+		//             hex: true,
+		//             rgba: true,
+		//             hsla: true,
+		//             input: true,
+		//             save: true
+		//         }
+		//     }
+		// };
+
+		// const rePickr = Pickr.create(Object.assign({ el: '#reaction-edge' }, pickrConfig));
+		// const nfPickr = Pickr.create(Object.assign({ el: '#node-fill' }, pickrConfig));
+		// const nePickr = Pickr.create(Object.assign({ el: '#node-edge' }, pickrConfig));
+		// rePickr.on('change', (hsva, _) => {
+		// 	graphCanvas.hyperedgeEdgeColor = hsva.toRGBA().toString();
+		// });
+
+		// nfPickr.on('change', (hsva, _) => {
+		// 	graphCanvas.nodeFillColor = hsva.toRGBA().toString();
+		// });
+
+		// nePickr.on('change', (hsva, _) => {
+		// 	graphCanvas.nodeEdgeColor = hsva.toRGBA().toString();
+		// });
+
+		// const hiPickr = Pickr.create(Object.assign({ el: '#hi-color' }, pickrConfig));
+		// const loPickr = Pickr.create(Object.assign({ el: '#lo-color' }, pickrConfig));
+		// hiPickr.on('change', (hsva, _) => {
+		// 	gradCanvas.hiColor = hsva.toRGBA().toString();
+		// 	gradCanvas.redraw();
+		// });
+
+		// loPickr.on('change', (hsva, _) => {
+		// 	gradCanvas.loColor = hsva.toRGBA().toString();
+		// 	gradCanvas.redraw();
+		// });
 	}
 })();
 

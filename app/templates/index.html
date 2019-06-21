@@ -14,7 +14,7 @@
 		}
 
 		header {
-			height: 5vh;
+			height: 45px;
 			width: 100vw;
 			background-color: lightgray;
 			display: flex;
@@ -32,6 +32,65 @@
 			display: flex;
 			flex-direction: column;
 			justify-content: space-around;
+		}
+
+		.sidebar-wrapper {
+			position: relative;
+			width: 100%;
+			border: 1px solid black;
+			display: flex;
+			justify-content: center;
+		}
+
+		.sidebar-slider {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			height: 0px;
+			overflow: hidden;
+			transition: height 0.5s;
+		}
+
+		.sidebar-wrapper i {
+			font-size: 43px;
+			height: 43px;
+			text-align: center;
+		}
+
+		.sidebar-wrapper button {
+			display: flex;
+			justify-content: center;
+		}
+
+		.sidebar-wrapper img {
+			width: 100%;
+			height: 6vh;
+		}
+
+		.sidebar-wrapper input[type=radio] {
+			opacity: 0;
+			overflow: hidden;
+			width: 100%;
+			height: 100%;
+			position: absolute;
+			top: 0px;
+			left: 0px;
+			cursor: pointer;
+		}
+
+		.sidebar-wrapper input[type=range] {
+			width: 75px;
+			height: 2px;
+			margin: 0px;
+			transform-origin: center;
+			transform: rotate(-90deg);
+		}
+
+		#gradient {
+			height: 49.5%;
+			width: 100%;
+			border: 1px solid black;
+			image-rendering: crisp-edges;
 		}
 
 		select {
@@ -172,14 +231,6 @@
 			border: 1px solid black;
 		}
 
-		.sidebar-wrapper {
-			position: relative;
-			width: 100%;
-			border: 1px solid black;
-			display: flex;
-			justify-content: center;
-		}
-
 		#canvas {
 			width: 100%;
 			height: 100%;
@@ -189,7 +240,7 @@
 		#canvas-container {
 			height: 49.5%;
 			width: 90%;
-			border: 1px solid blue;
+			border: 1px solid black;
 			overflow: hidden;
 			display: flex;
 			justify-content: center;
@@ -200,11 +251,12 @@
 			width: 10%;
 		}
 
-		#row-seperator {
+		#row-seperator, #sidebar-seperator {
 			height: 1%;
 			width: 100%;
 			background-color: gray;
-			border: 1px solid black;
+			border-top: 1px solid black;
+			border-bottom: 1px solid black;
 			z-index: 11;
 		}
 
@@ -260,58 +312,6 @@
 			bottom: 0%;
 			background-color: white;
 			display: none;
-		}
-
-		.sidebar-slider {
-			height: 12.9vh;
-			display: flex;
-			justify-content: center;
-			align-items: center;
-		}
-
-		.sidebar-wrapper i {
-			font-size: 43px;
-			height: 43px;
-			text-align: center;
-		}
-
-		.sidebar-wrapper button {
-			display: flex;
-			justify-content: center;
-		}
-
-		.sidebar-wrapper img {
-			width: 100%;
-			height: 6vh;
-		}
-
-		.sidebar-wrapper input[type=radio] {
-			opacity: 0;
-			overflow: hidden;
-			width: 100%;
-			height: 100%;
-			position: absolute;
-			top: 0px;
-			left: 0px;
-			cursor: pointer;
-		}
-
-		.sidebar-wrapper input[type=range] {
-			width: 75px;
-			height: 2px;
-			margin: 0;
-			transform-origin: center;
-			transform: rotate(-90deg);
-		}
-
-		#sidebar .pickr button {
-			width: 100%;
-		}
-
-		#gradient {
-			height: 10vh;
-			width: 100%;
-			background: linear-gradient(to bottom, lightblue, pink);
 		}
 
 /*		#art-palette {
@@ -488,11 +488,8 @@
 		</div>
 	</header>
 	<div id='sidebar'>
-		<div class="sidebar-wrapper">
-			<input class="sidebar-color" id="hi-color" />
-			<canvas id="gradient"></canvas>
-			<input class="sidebar-color" id="lo-color" />
-		</div>
+		<canvas id="gradient"></canvas>
+		<div id="sidebar-seperator"></div>
 		<div class="sidebar-wrapper">
 			<i class="fas fa-clock" title="Display Time"></i>
 			<div class="sidebar-slider">
@@ -518,33 +515,11 @@
 		</div>
 	</div>
 	<main>
-<!-- 		<div id="art-palette">
-			<h1>Reaction</h1>
-			<div class="palette-container">
-				<i class="material-icons">lens</i>
-				<input id="reaction-edge" />
-			</div>
-			<div class="palette-container">
-				<i class="material-icons">line_weight</i>
-				<div class="palette-slider">
-					<input type="range" id="line-thickness" min="0" max="5" step="0.1"/>
-				</div>
-			</div>
-			<h1>Node</h1>
-			<div class="palette-container">
-				<i class="material-icons">lens</i>
-				<input id="node-fill" />
-			</div>
-			<div class="palette-container">
-				<i class="material-icons">panorama_fish_eye</i>
-				<input id="node-edge" />
-			</div>
-		</div> -->
 		<div id="canvas-container">
 			<canvas id="canvas"></canvas>
 		</div>
 		<div id="selection-container">
-			<select id="select-list" style="height: 90%; width: 100%; font-size: 20px" multiple></select>
+			<select id="select-list" style="height: 90%; width: 100%; font-size: 20px;" multiple></select>
 			<button id="select-all" style="height: 10%; width: 100%; font-size: 2vw;">Select All</button>
 		</div>
 		<div id='row-seperator'></div>
@@ -568,15 +543,17 @@
 				<label for="yaxis-min">Min</label>
 				<input type="number" id="yaxis-min" value="-1" disabled>	
 			</div>
-			<div class="seperator-wrapper">
-				<input type="radio" name="menu" id="from-0" value="from-0" checked />
-				<button>From&nbsp;0</button>		
+			<div style="display: none;">
+				<div class="seperator-wrapper">
+					<input type="radio" name="menu" id="from-0" value="from-0" checked />
+					<button>From&nbsp;0</button>		
+				</div>
+				<div class="seperator-wrapper">
+					<input type="radio" name="menu" id="window" value="window" />
+					<button>Window</button>
+				</div>
+				<input type="number" id="window-steps">
 			</div>
-			<div class="seperator-wrapper">
-				<input type="radio" name="menu" id="window" value="window" />
-				<button>Window</button>
-			</div>
-			<input type="number" id="window-steps">
 		</div>
 		<div id="chart-container" class="column">
 			<canvas id="chart"></canvas>
@@ -584,3 +561,25 @@
 	</main>
 </body>
 </html>
+<!-- 		<div id="art-palette">
+			<h1>Reaction</h1>
+			<div class="palette-container">
+				<i class="material-icons">lens</i>
+				<input id="reaction-edge" />
+			</div>
+			<div class="palette-container">
+				<i class="material-icons">line_weight</i>
+				<div class="palette-slider">
+					<input type="range" id="line-thickness" min="0" max="5" step="0.1"/>
+				</div>
+			</div>
+			<h1>Node</h1>
+			<div class="palette-container">
+				<i class="material-icons">lens</i>
+				<input id="node-fill" />
+			</div>
+			<div class="palette-container">
+				<i class="material-icons">panorama_fish_eye</i>
+				<input id="node-edge" />
+			</div>
+		</div> -->
