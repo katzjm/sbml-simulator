@@ -317,20 +317,9 @@
 							}
 						}]
 					},
-					// onHover: function(e) {
-					// 	var item = this.chart.getElementAtEvent(e);
-					// 	if (item.length) {
-					// 		console.log("onHover",item, e.type);
-					// 		console.log(">data", item[0]._index, this.chart.data.datasets[0].data[item[0]._index]);
-					// 	}
-					// }
 				}
 			}
 			this.chart = new Chart(this.ctx, this.config);
-		}
-
-		loadData(data) {
-			simData = data;
 		}
 
 		pushDataPoint(newData) {
@@ -390,6 +379,8 @@
 					this.chart.data.datasets.push(this.getDatasetConfig(label, simData[label]));
 				}
 			}
+			this.chart.data.labels = simData['time'].map( (number) => number.toPrecision(4) );
+			console.log(this.chart.data.datasets);
 			this.chart.update();
 		}
 
@@ -719,7 +710,6 @@
 			const option = document.createElement('option');
 			option.value = shape.id;
 			option.innerHTML = shape.id;
-			option.addEventListener('click', (e) => graphCanvas.clickShape(shape, e) );
 			selectList.appendChild(option);
 		});
 
@@ -749,7 +739,7 @@
 	}
 
 	function handleRunOutput(json) {
-		chartCanvas.loadData(json['data']);
+		simData = json['data'];
 		chartCanvas.plotAllDatasets();
 	}
 
@@ -804,7 +794,7 @@
 				postToServer('set_param', () => { return null }, args);
 				if (document.getElementById('offline').checked) {
 					runSimulation( (json) => {
-						chartCanvas.loadData(json['data']);
+						simData = json['data'];
 						chartCanvas.replot();
 					});	
 				}
@@ -1044,13 +1034,21 @@
 			});
 		}
 
-		for (let select of document.getElementsByTagName('select')) {
-			select.addEventListener('click', (e) => {
-				if (e.shiftKey) {
-					e.shiftKey = false;
-					e.ctrlKey = true;
+		const selectList = document.getElementById('select-list');
+		selectList.addEventListener('change', (e) => {
+			for (let option of selectList.options) {
+				let id = option.text;
+				if (graphCanvas.nodes.some((node) => node.id === id)) {
+					id = '[' + id + ']';
 				}
-			});
-		}
+				if (Array.from(selectList.selectedOptions).some((selOption) => selOption.text === option.text)) {
+					chartCanvas.plotDataset(id);
+				} else {
+					chartCanvas.hideDataset(id);
+				}
+			}
+		});
+
+		document.getElementById('clear').addEventListener('click', (e) => chartCanvas.hideAllDatasets());
 	}
 })();
