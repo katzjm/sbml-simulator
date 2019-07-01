@@ -714,7 +714,10 @@
 		});
 
 
-		if (json['params']) {		
+		if (json['params']) {
+			console.log('li');
+			document.getElementById('clear-sliders').dispatchEvent(new Event('click'));
+			console.log('hi');	
 			const paramList = document.getElementById('parameter-list');
 			for (let i = paramList.options.length - 1; i >= 0; i--) {
 				paramList.remove(i);
