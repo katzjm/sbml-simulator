@@ -46,7 +46,7 @@
 			.catch(console.log);
 	}
 
-	function runSimulation(resultFunction, start, end, steps) {
+	function runSimulation(resultFunction) {
 		const args = { 'start': start, 'end': end, 'steps': steps };
 		postToServer('run', resultFunction, args);
 	}
@@ -420,7 +420,7 @@
 		}
 
 		redraw() {
-			const colors = ['red', 'orange', 'yellow', 'green', 'lightblue', 'gold', 'pink', 'violet'];
+			const colors = ['red', 'orange', 'yellow', 'green', 'cyan', 'pink', 'violet'];
 			const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
 			for (let i = 0; i < colors.length; i++) {
 				gradient.addColorStop(i / (colors.length - 1), colors[i]);
@@ -727,7 +727,7 @@
 		if (json['params']) {		
 			const paramList = document.getElementById('parameter-list');
 			for (let i = paramList.options.length - 1; i >= 0; i--) {
-				paramList.remove(i)
+				paramList.remove(i);
 			}
 
 			for (let param of json['params']) {
@@ -750,7 +750,7 @@
 
 	function handleRunOutput(json) {
 		chartCanvas.loadData(json['data']);
-		chartCanvas.hideAllDatasets();
+		chartCanvas.plotAllDatasets();
 	}
 
 	class Slider {
@@ -877,7 +877,7 @@
 		canvasTime.min = 0;
 		canvasTime.max = steps - 1;
 		canvasTime.value = 0;
-		runSimulation(handleRunOutput, start, end, steps);
+		runSimulation(handleRunOutput);
 	}
 
 	function startOnlineSim(e) {
@@ -942,6 +942,7 @@
 			if (startButton.firstChild.className === 'fas fa-play') {
 				resetData();
 				startOnlineSim(e);
+				chartCanvas.plotAllDatasets();
 				startButton.firstChild.className = 'fas fa-pause';
 			} else {
 				socket.emit('pause');
@@ -1043,113 +1044,13 @@
 			});
 		}
 
-		// function rowResize(e) {
-		// 	e.preventDefault();
-		// 	graphCanvas.cssHeight = (parseInt(graphCanvas.cssHeight) + e.movementY) + 'px';
-		// 	graphCanvas.canvasHeight = parseInt(graphCanvas.canvasHeight) + e.movementY;
-		// 	canvasContainer.style.height = parseInt(canvasContainer.style.height) + e.movementY + 'px';
-		// 	for (const column of document.getElementsByClassName('column')) {
-		// 		column.style.height = (column.getBoundingClientRect().height - e.movementY) + 'px';
-		// 	};
-		// }
-
-		// document.getElementById('row-seperator').addEventListener('mousedown', (e) => {
-		// 	document.addEventListener('mousemove', rowResize);
-		// });
-
-		// document.addEventListener('mouseup', (e) => {
-		// 	document.removeEventListener('mousemove', rowResize);
-		// });
-
-		// const lineThicknessEditor = document.getElementById('line-thickness');
-		// lineThicknessEditor.addEventListener('input', (e) => {
-		// 	graphCanvas.lineWidth = lineThicknessEditor.value;
-		// });
-
-		// const pickrConfig = {
-		//     components: {
-		//         preview: true,
-		//         opacity: true,
-		//         hue: true,
-
-		//         interaction: {
-		//             hex: true,
-		//             rgba: true,
-		//             hsla: true,
-		//             input: true,
-		//             save: true
-		//         }
-		//     }
-		// };
-
-		// const rePickr = Pickr.create(Object.assign({ el: '#reaction-edge' }, pickrConfig));
-		// const nfPickr = Pickr.create(Object.assign({ el: '#node-fill' }, pickrConfig));
-		// const nePickr = Pickr.create(Object.assign({ el: '#node-edge' }, pickrConfig));
-		// rePickr.on('change', (hsva, _) => {
-		// 	graphCanvas.hyperedgeEdgeColor = hsva.toRGBA().toString();
-		// });
-
-		// nfPickr.on('change', (hsva, _) => {
-		// 	graphCanvas.nodeFillColor = hsva.toRGBA().toString();
-		// });
-
-		// nePickr.on('change', (hsva, _) => {
-		// 	graphCanvas.nodeEdgeColor = hsva.toRGBA().toString();
-		// });
-
-		// const hiPickr = Pickr.create(Object.assign({ el: '#hi-color' }, pickrConfig));
-		// const loPickr = Pickr.create(Object.assign({ el: '#lo-color' }, pickrConfig));
-		// hiPickr.on('change', (hsva, _) => {
-		// 	gradCanvas.hiColor = hsva.toRGBA().toString();
-		// 	gradCanvas.redraw();
-		// });
-
-		// loPickr.on('change', (hsva, _) => {
-		// 	gradCanvas.loColor = hsva.toRGBA().toString();
-		// 	gradCanvas.redraw();
-		// });
+		for (let select of document.getElementsByTagName('select')) {
+			select.addEventListener('click', (e) => {
+				if (e.shiftKey) {
+					e.shiftKey = false;
+					e.ctrlKey = true;
+				}
+			});
+		}
 	}
 })();
-
-// const x1 = 0;
-// const y1 = 0;
-// const bx1 = 0;
-// const by1 = 125;
-// const bx2 = 250;
-// const by2 = 125;
-// const x2 = 250;
-// const y2 = 250;
-
-// let t = 0;
-// function draw() {
-//   const ctx = document.getElementById('canvas').getContext('2d');
-//   ctx.clearRect(0, 0, 500, 500);
-  
-//   ctx.strokeStyle = 'black';
-//   ctx.moveTo(x1, y1);
-//   ctx.bezierCurveTo(bx1, by1, bx2, by2, x2, y2);
-//   ctx.stroke();
-  
-//   const roc = 1000;
-//   const time = new Date().getTime();
-//   const dt = 0.01 * (time % roc) / roc;
-//   t = (t + dt) % 1;
-//   console.log(t);
-
-//   const u = 1.0 - t;
-//   const qxb =  x1*u*u + bx1*2*t*u + bx2*t*t;
-//   const qxd = bx1*u*u + bx2*2*t*u +  x2*t*t;
-//   const qyb =  y1*u*u + by1*2*t*u + by2*t*t;
-//   const qyd = by1*u*u + by2*2*t*u +  y2*t*t;
-//   const xd = qxb*u + qxd*t;
-//   const yd = qyb*u + qyd*t; 
-  
-//   ctx.beginPath();
-//   ctx.fillStyle = 'green';
-//   ctx.arc(xd, yd, 10, 0, 2 * Math.PI);
-//   ctx.fill();
-  
-//   window.requestAnimationFrame(draw);
-// }
-
-// window.requestAnimationFrame(draw);
