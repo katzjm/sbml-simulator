@@ -23,9 +23,6 @@ def setmodeldrag(nid, dx, dy):
 
 def setmodel(width, height, gravity=0, stiffness=20):
 	current_app.config['model'] = sbnw.loadsbml(current_app.config['sbml'])
-	# current_app.zz = SBMLlayout(current_app.config['sbml'])
-	# current_app.zz.setLayoutAlgorithmOptions(grav=gravity, k=stiffness, prerandom=1)
-	# current_app.zz.regenerateLayoutAndNetwork()
 	if not current_app.config['model'].network.haslayout():
 		current_app.config['model'].network.randomize(5, 10, width - 5, height - 10)
 		current_app.config['model'].network.autolayout(k=stiffness, grav=gravity)
@@ -35,39 +32,8 @@ def getLayout():
 	layout = {
 		'nodes': list(),
 		'edges': None,
-		# 'sbml': current_app.zz.getSBMLString(),
 		'sbml': current_app.config['model'].getsbml(),
 	}
-
-	# for nid in current_app.zz.getNodeIds():
-	# 	layout['nodes'].append({
-	# 		'id': nid,
-	# 		'height': current_app.zz.getNodeHeight(nid),
-	# 		'width': current_app.zz.getNodeWidth(nid),
-	# 		'centroid': current_app.zz.getNodeCentroid(nid),
-	# 	})
-
-	# edges = list()
-	# for rid in current_app.zz.getReactionIds():
-	# 	curves = list()
-	# 	for curve in rxn.curves:
-	# 		curveType = curve[4]
-	# 		arrow = [tuple(point) for point in curve[5]]
-	# 		curves.append({
-	# 			'type': curveType,
-	# 			'bezier': {
-	# 				'start': tuple(curve[0]),
-	# 				'cp1': tuple(curve[1]),
-	# 				'cp2': tuple(curve[2]),
-	# 				'end': tuple(curve[3]),
-	# 			},
-	# 			'arrow': arrow,
-	# 		})
-	# 	edges.append({
-	# 		'id': rid,
-	# 		'curves': curves,
-	# 	})
-	# layout['edges'] = edges
 
 	nodes = current_app.config['model'].network.nodes
 	concentrations = current_app.config['r'].model.getFloatingSpeciesConcentrations()

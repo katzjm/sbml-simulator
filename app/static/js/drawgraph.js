@@ -166,7 +166,6 @@
 
 		set value(newValue) {
 			this._value = newValue;
-			console.log(newValue, this._value);
 			this.fillColor = this.boundary ? 'white' : gradCanvas.getColorAtValue(this._value);
 		}
 	}
@@ -379,8 +378,9 @@
 					this.chart.data.datasets.push(this.getDatasetConfig(label, simData[label]));
 				}
 			}
-			this.chart.data.labels = simData['time'].map( (number) => number.toPrecision(4) );
-			console.log(this.chart.data.datasets);
+			if (Object.entries(simData).length !== 0) {
+				this.chart.data.labels = simData['time'].map( (number) => number.toPrecision(4) );
+			}
 			this.chart.update();
 		}
 
@@ -428,7 +428,6 @@
 		}
 
 		getColorAtValue(value) {
-			console.log(value, 'getColorAtValue');
 			const color = this.ctx.getImageData(this.canvas.width / 7 , (-Math.log10(value) + 4) / 8 * this.canvas.height, 1, 1).data;
 			return 'rgba(' + color[0] + ',' + color[1] + ',' + color[2] + ',' + color[3] + ')';
 		}
@@ -485,19 +484,6 @@
 				} else if (this.dragShape) {
 					const args = { 'id': this.dragShape.id, 'dx': dx, 'dy': dy };
 					postToServer('drag', handleLayoutJSON, args);
-				} else {
-					// this.tip.hide();
-					// const simpleMouse = this.getSimpleMousePos(e);
-					// const hoverShape = this.getContainedShape(simpleMouse.x, simpleMouse.y);
-					// if (hoverShape) {
-					// 	this.tip.show();
-					// 	this.tip.moveTo(
-					// 		hoverShape.x + hoverShape.width,
-					// 		hoverShape.y - (this.tip.canvas.scrollHeight - hoverShape.height) / 2
-					// 	);
-					// 	this.tip.text = hoverShape.value;
-					// 	this.tip.draw();
-					// }																				
 				}
 				this.valid = false;
 			}, true);
@@ -607,7 +593,6 @@
 
 		setTimepoint(index) {
 			this.valid = false;
-			console.log(index, simData);
 			this.nodes.forEach( (node) => node.value = simData['[' + node.id + ']'][index] );
 		}
 
@@ -698,8 +683,13 @@
 		downloadLink.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(layout['sbml']);
 
 		graphCanvas.clear();
-		nodes.forEach( (node) => graphCanvas.addShape(new Node(node)) );
+		nodes.forEach( (node) => {
+			simData[node.id] = node.value;
+			graphCanvas.addShape(new Node(node))
+		});
 		edges.forEach( (edge) => graphCanvas.addShape(new HyperEdge(edge)) );
+		simData['time'] = start;
+		console.log(simData);
 
 		const selectList = document.getElementById('select-list');
 		for (let i = selectList.options.length - 1; i >= 0; i--) {
@@ -715,26 +705,22 @@
 
 
 		if (json['params']) {
-			console.log('li');
 			document.getElementById('clear-sliders').dispatchEvent(new Event('click'));
-			console.log('hi');	
 			const paramList = document.getElementById('parameter-list');
-			for (let i = paramList.options.length - 1; i >= 0; i--) {
-				paramList.remove(i);
+			while(paramList.firstChild) {
+				paramList.removeChild(paramList.firstChild);
 			}
 
 			for (let param of json['params']) {
-				const option = document.createElement('option');
+				const option = document.createElement('li');
 				option.addEventListener('click', handleParamSelection);
-				option.value = param;
 				option.innerHTML = param;
 				paramList.appendChild(option);
 			}
 
 			for (let param of json['bounds']) {
-				const option = document.createElement('option');
+				const option = document.createElement('li');
 				option.addEventListener('click', handleParamSelection);
-				option.value = param;
 				option.innerHTML = param;
 				paramList.appendChild(option);
 			}
@@ -838,11 +824,15 @@
 	}
 
 	function handleParamSelection(e) {
-		const param = e.target.text;
+		const param = e.target.innerHTML;
 		const slider = document.getElementById(param);
 		if (slider) {
+			e.target.style.backgroundColor = 'white';
+			e.target.style.color = 'black';
 			slider.parentNode.removeChild(slider);
 		} else {
+			e.target.style.backgroundColor = '#0062E1';
+			e.target.style.color = 'white';
 			const sliderCreator = getSliderCreator(param);
 			postToServer('get_param', sliderCreator, { 'param': param });
 		}
@@ -893,11 +883,9 @@
 		if (document.getElementById('offline').checked) {
 			document.getElementById('offline-form').style.display = 'flex';
 			document.getElementById('online-form').style.display = 'none';
-			document.getElementById('start-menu').style.display = 'none';
 		} else {
 			document.getElementById('offline-form').style.display = 'none';
 			document.getElementById('online-form').style.display = 'flex';
-			document.getElementById('start-menu').style.display = 'block';
 		}
 	}
 
@@ -923,9 +911,16 @@
 		document.getElementById('stiffness').addEventListener('change', uploadSBML);
 
 		const sliders = document.getElementById('sliders');
+		const paramList = document.getElementById('parameter-list');
 		document.getElementById('clear-sliders').addEventListener('click', (e) => {
 			while (sliders.firstChild) {
 				sliders.removeChild(sliders.firstChild);
+			}
+
+			const items = paramList.getElementsByTagName('li');
+			for (let item of items) {
+				item.style.backgroundColor = 'white';
+				item.style.color = 'black';
 			}
 		});
 
@@ -986,7 +981,6 @@
 		const yaxisMax = document.getElementById('yaxis-max');
 		const yaxisMin = document.getElementById('yaxis-min');
 		document.getElementById('yaxis').addEventListener('click', (e) => {
-			console.log(window.getComputedStyle(yaxisControls)['opacity']);
 			if (window.getComputedStyle(yaxisControls)['opacity'] == 0.2) {
 				yaxisMax.removeAttribute('disabled');
 				yaxisMin.removeAttribute('disabled');
@@ -1044,6 +1038,7 @@
 				if (graphCanvas.nodes.some((node) => node.id === id)) {
 					id = '[' + id + ']';
 				}
+
 				if (Array.from(selectList.selectedOptions).some((selOption) => selOption.text === option.text)) {
 					chartCanvas.plotDataset(id);
 				} else {
