@@ -71,6 +71,7 @@ def getLayout():
 		edges.append({
 			'id': rid,
 			'curves': curves,
+			'value': rate,
 		})
 	layout['edges'] = edges
 

@@ -12,6 +12,7 @@
 	let frequency;
 	let socket;
 	let simData = {};
+	let initialData = {};
 
 	function checkStatus(response) {
 		if (response.status >= 200 && response.status < 300) {
@@ -673,6 +674,15 @@
 		socket.emit('start', args);
 	}
 
+	function handleInitialLayoutJSON(json) {
+		const layout = json['layout'];
+		const nodes = layout['nodes'];
+		const edges = layout['edges'];
+		nodes.forEach( (node) => initialData['[' + node.id + ']'] = node.value );
+		edges.forEach( (edge) => initialData[edge.id] = edge.value );
+		handleLayoutJSON(json);
+	}
+
 	function handleLayoutJSON(json){
 		const layout = json['layout'];
 		const nodes = layout['nodes'];
@@ -683,13 +693,8 @@
 		downloadLink.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(layout['sbml']);
 
 		graphCanvas.clear();
-		nodes.forEach( (node) => {
-			simData[node.id] = node.value;
-			graphCanvas.addShape(new Node(node))
-		});
+		nodes.forEach( (node) => graphCanvas.addShape(new Node(node)) );
 		edges.forEach( (edge) => graphCanvas.addShape(new HyperEdge(edge)) );
-		simData['time'] = start;
-		console.log(simData);
 
 		const selectList = document.getElementById('select-list');
 		for (let i = selectList.options.length - 1; i >= 0; i--) {
@@ -702,7 +707,6 @@
 			option.innerHTML = shape.id;
 			selectList.appendChild(option);
 		});
-
 
 		if (json['params']) {
 			document.getElementById('clear-sliders').dispatchEvent(new Event('click'));
@@ -847,7 +851,7 @@
 			'gravity': document.getElementById('gravity').value,
 			'stiffness': document.getElementById('stiffness').value,
 		}
-		postToServer('upload', handleLayoutJSON, args);
+		postToServer('upload', handleInitialLayoutJSON, args);
 	}
 
 	function startOfflineSim(e) {
@@ -930,7 +934,10 @@
 			if (startButton.firstChild.className === 'fas fa-play') {
 				resetData();
 				startOnlineSim(e);
+				initialData['time'] = Number(start);
+				chartCanvas.pushDataPoint(initialData);
 				chartCanvas.plotAllDatasets();
+				document.getElementById('offline').disabled = true;
 				startButton.firstChild.className = 'fas fa-pause';
 			} else {
 				socket.emit('pause');
@@ -951,6 +958,7 @@
 			socket.emit('end');
 			startButton.style.display = 'block';
 			pauseMenu.style.display = 'none';
+			document.getElementById('offline').disabled = false;
 			startButton.firstChild.className = 'fas fa-play';
 		});
 

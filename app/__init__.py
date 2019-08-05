@@ -47,8 +47,10 @@ def worker(simTime):
 			if (running.is_set()):
 				simTime = app.config['r'].oneStep(simTime, app.config['timestep'])
 				realTime = time.time()
-				response = { name: amt for name, amt 
-					in zip(app.config['r'].timeCourseSelections, app.config['r'].getSelectedValues()) }
+				response = { 
+					name: amt for name, amt 
+					in zip(app.config['r'].timeCourseSelections, app.config['r'].getSelectedValues()) 
+				}
 				socketio.emit('response', response)
 
 @socketio.on('pause')
