@@ -424,12 +424,18 @@
 			this.ctx.textAlign = 'center';
 			this.ctx.font = '20px sans-serif';
 			for (let i = -4; i <= 3; i++) {
-				this.ctx.fillText(Math.pow(10, -i), this.canvas.width / 2, (i + 4) / 8 * this.canvas.height);
+				this.ctx.fillText(
+					Math.pow(10, -i),
+					this.canvas.width / 2, (i + 4) / 8 * this.canvas.height
+				);
 			}
 		}
 
 		getColorAtValue(value) {
-			const color = this.ctx.getImageData(this.canvas.width / 7 , (-Math.log10(value) + 4) / 8 * this.canvas.height, 1, 1).data;
+			const coercedValue = Math.min(5000, Math.max(0.0005, value));
+			const color = this.ctx.getImageData(
+				this.canvas.width / 7,
+				(-Math.log10(coercedValue) + 4) / 8 * this.canvas.height, 1, 1).data;
 			return 'rgba(' + color[0] + ',' + color[1] + ',' + color[2] + ',' + color[3] + ')';
 		}
 	}
@@ -528,7 +534,14 @@
 		}
 
 		getContainedShape(mx, my) {
-			this.uiCtx.setTransform(this.scale, 0, 0, this.scale, -this.originX * this.scale, -this.originY * this.scale);
+			this.uiCtx.setTransform(
+				this.scale,
+				0,
+				0,
+				this.scale,
+				-this.originX * this.scale,
+				-this.originY * this.scale
+			);
 			this.uiCtx.drawImage(this.canvas, 0, 0);
 			return this.shapes.find( (shape) => shape.contains(this.uiCtx, mx, my) );
 		}
@@ -563,7 +576,12 @@
 
 		draw() {
 			if (!this.valid) {	
-				this.ctx.clearRect(this.originX, this.originY, this.canvas.width / this.scale, this.canvas.height / this.scale);
+				this.ctx.clearRect(
+					this.originX,
+					this.originY,
+					this.canvas.width / this.scale,
+					this.canvas.height / this.scale
+				);
 				this.shapes.forEach( (shape) => shape.draw(this.ctx) );
 				this.valid = true;
 			}
@@ -1018,13 +1036,13 @@
 		const frequency = document.getElementById('frequency-online');
 		frequency.addEventListener('input', (e) => {
 			const args = { 'param': 'frequency', 'value': frequency.value };
-			postToServer('set_sim_param', () => { return null }, args);
+			postToServer('set_sim_param', () => {}, args);
 		});
 
 		const timestep = document.getElementById('step-online');
 		timestep.addEventListener('input', (e) => {
 			const args = { 'param': 'timestep', 'value': timestep.value };
-			postToServer('set_sim_param', () => { return null }, args);
+			postToServer('set_sim_param', () => {}, args);
 		});
 
 		gradCanvas = new GradientCanvas(document.getElementById('gradient'));
