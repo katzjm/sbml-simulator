@@ -1073,6 +1073,8 @@
 			}
 		});
 
+		postToServer('load', () => {}, {});
+
 		document.getElementById('clear').addEventListener('click', (e) => chartCanvas.hideAllDatasets());
 	}
 })();
